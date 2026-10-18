@@ -238,19 +238,6 @@ export const vfflSos = vffl.table("sos", {
   sosRank: integer("sos_rank"),
 });
 
-export const vfflAwards = vffl.table("awards", {
-  id: serial("id").primaryKey(),
-  leagueId: integer("league_id").notNull(),
-  seasonYear: integer("season_year").notNull(),
-  week: integer("week").notNull(),
-  award: varchar("award", { length: 255 }).notNull(),
-  definition: varchar("definition", { length: 255 }).notNull(),
-  managerId: integer("manager_id").references(() => vfflManagers.id),
-  playerId: integer("player_id").references(() => vfflPlayers.id), // Optional: captures the specific player for GOAT/Defense
-  value: real("value"),
-  supplemental: varchar("supplemental", { length: 255 }),
-});
-
 export const vfflFinances = vffl.table("finances", {
   id: serial("id").primaryKey(),
   leagueId: integer("league_id").notNull(),
@@ -405,6 +392,19 @@ export const vfflVwThisWeekInHistory = vffl.view("vw_this_week_in_history", {
   totalFpts: real("total_fpts"),
   victoryMargin: real("victory_margin"),
   projectionMargin: real("projection_margin"),
+}).existing();
+
+export const vfflVwWeeklyProps = vffl.view("vw_weekly_props", {
+  seasonYear: integer("season_year"),
+  week: integer("week"),
+  leagueName: varchar("league_name", { length: 255 }),
+  managerName: text("manager_name"),
+  teamName: varchar("team_name", { length: 255 }),
+  playerName: varchar("player_name", { length: 255 }),
+  award: varchar("award", { length: 255 }),
+  definition: varchar("definition", { length: 255 }),
+  value: real("value"),
+  supplemental: varchar("supplemental", { length: 255 }),
 }).existing();
 
 // -----------------------------------------------------------------------------
