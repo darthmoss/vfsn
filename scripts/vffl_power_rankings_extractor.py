@@ -1,6 +1,5 @@
 import os
 import sys
-import math
 import psycopg2
 import statistics
 from dotenv import load_dotenv
