@@ -27,8 +27,7 @@ pipeline_scripts = [
     ["python", "vffl_schedule_extractor.py", year, week],
     
     # Phase 4: Matrix Calculations & Awards
-    ["python", "vffl_power_rankings_extractor.py", year, week],
-    ["python", "vffl_awards_extractor.py", year, week]
+    ["python", "vffl_power_rankings_extractor.py", year, week]
 ]
 
 print(f"--- Starting VFSN Tuesday Pipeline for {year} Week {week} ---")
