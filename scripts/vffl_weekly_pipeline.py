@@ -12,7 +12,9 @@ else:
 # 2. Define the Execution Sequence
 pipeline_scripts = [
     # Phase 1: Identity Sync & Transactions
+    # Runs the manager and player sync first to catch any mid-season team or roster universe changes.
     ["python", "vffl_managers_extractor.py", year],
+    ["python", "vffl_players_extractor.py", year],
     ["python", "vffl_transactions_extractor.py", year],
     
     # Phase 2: Raw Data & Global Stats

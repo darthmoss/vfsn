@@ -1,4 +1,4 @@
-import { pgSchema, serial, integer, varchar, boolean, text, real, timestamp } from "drizzle-orm/pg-core";
+import { pgSchema, serial, integer, varchar, boolean, text, real, timestamp, pgView } from "drizzle-orm/pg-core"; 
 
 // -----------------------------------------------------------------------------
 // 1. VFFL: Victra Fantasy Football League
@@ -137,36 +137,36 @@ export const vfflDivisionPowerRankings = vffl.table("division_power_rankings", {
   wkApLosses: integer("wk_ap_losses"),
   wkApTies: integer("wk_ap_ties"),
   wkApWinPct: real("wk_ap_win_pct"),
-  wkOptFpts: real("wk_opt_fpts"),
   wkActFpts: real("wk_act_fpts"),
-  wkOptPct: real("wk_opt_pct"),
+  wkOptFpts: real("wk_opt_fpts"),
+  wkEffPct: real("wk_eff_pct"),
+  wkPerfVar: real("wk_perf_var"),
   wkApZ: real("wk_ap_z"),
-  wkOptZ: real("wk_opt_z"),
   wkActZ: real("wk_act_z"),
-  wkGrossDomScore: real("wk_gross_dom_score"),
-  wkNetDomScore: real("wk_net_dom_score"),
-  wkGrossPowerRank: integer("wk_gross_power_rank"),
-  wkNetPowerRank: integer("wk_net_power_rank"),
-  wkGrossRankDiff: integer("wk_gross_rank_diff"),
-  wkNetRankDiff: integer("wk_net_rank_diff"),
+  wkOptZ: real("wk_opt_z"),
+  wkEffZ: real("wk_eff_z"),
+  wkPerfZ: real("wk_perf_z"),
+  wkPowerScore: real("wk_power_score"),
+  wkPowerRank: integer("wk_power_rank"),
+  wkRankDiff: integer("wk_rank_diff"),
 
   // Season-to-Date (STD) Metrics
   stdApWins: integer("std_ap_wins"),
   stdApLosses: integer("std_ap_losses"),
   stdApTies: integer("std_ap_ties"),
   stdApWinPct: real("std_ap_win_pct"),
-  stdOptFpts: real("std_opt_fpts"),
   stdActFpts: real("std_act_fpts"),
-  stdOptPct: real("std_opt_pct"),
+  stdOptFpts: real("std_opt_fpts"),
+  stdEffPct: real("std_eff_pct"),
+  stdPerfVar: real("std_perf_var"),
   stdApZ: real("std_ap_z"),
-  stdOptZ: real("std_opt_z"),
   stdActZ: real("std_act_z"),
-  stdGrossDomScore: real("std_gross_dom_score"),
-  stdNetDomScore: real("std_net_dom_score"),
-  stdGrossPowerRank: integer("std_gross_power_rank"),
-  stdNetPowerRank: integer("std_net_power_rank"),
-  stdGrossRankDiff: integer("std_gross_rank_diff"),
-  stdNetRankDiff: integer("std_net_rank_diff"),
+  stdOptZ: real("std_opt_z"),
+  stdEffZ: real("std_eff_z"),
+  stdPerfZ: real("std_perf_z"),
+  stdPowerScore: real("std_power_score"),
+  stdPowerRank: integer("std_power_rank"),
+  stdRankDiff: integer("std_rank_diff"),
 });
 
 export const vfflOverallPowerRankings = vffl.table("overall_power_rankings", {
@@ -181,36 +181,36 @@ export const vfflOverallPowerRankings = vffl.table("overall_power_rankings", {
   wkApLosses: integer("wk_ap_losses"),
   wkApTies: integer("wk_ap_ties"),
   wkApWinPct: real("wk_ap_win_pct"),
-  wkOptFpts: real("wk_opt_fpts"),
   wkActFpts: real("wk_act_fpts"),
-  wkOptPct: real("wk_opt_pct"),
+  wkOptFpts: real("wk_opt_fpts"),
+  wkEffPct: real("wk_eff_pct"),
+  wkPerfVar: real("wk_perf_var"),
   wkApZ: real("wk_ap_z"),
-  wkOptZ: real("wk_opt_z"),
   wkActZ: real("wk_act_z"),
-  wkGrossDomScore: real("wk_gross_dom_score"),
-  wkNetDomScore: real("wk_net_dom_score"),
-  wkGrossPowerRank: integer("wk_gross_power_rank"),
-  wkNetPowerRank: integer("wk_net_power_rank"),
-  wkGrossRankDiff: integer("wk_gross_rank_diff"),
-  wkNetRankDiff: integer("wk_net_rank_diff"),
+  wkOptZ: real("wk_opt_z"),
+  wkEffZ: real("wk_eff_z"),
+  wkPerfZ: real("wk_perf_z"),
+  wkPowerScore: real("wk_power_score"),
+  wkPowerRank: integer("wk_power_rank"),
+  wkRankDiff: integer("wk_rank_diff"),
 
   // Season-to-Date (STD) Metrics
   stdApWins: integer("std_ap_wins"),
   stdApLosses: integer("std_ap_losses"),
   stdApTies: integer("std_ap_ties"),
   stdApWinPct: real("std_ap_win_pct"),
-  stdOptFpts: real("std_opt_fpts"),
   stdActFpts: real("std_act_fpts"),
-  stdOptPct: real("std_opt_pct"),
+  stdOptFpts: real("std_opt_fpts"),
+  stdEffPct: real("std_eff_pct"),
+  stdPerfVar: real("std_perf_var"),
   stdApZ: real("std_ap_z"),
-  stdOptZ: real("std_opt_z"),
   stdActZ: real("std_act_z"),
-  stdGrossDomScore: real("std_gross_dom_score"),
-  stdNetDomScore: real("std_net_dom_score"),
-  stdGrossPowerRank: integer("std_gross_power_rank"),
-  stdNetPowerRank: integer("std_net_power_rank"),
-  stdGrossRankDiff: integer("std_gross_rank_diff"),
-  stdNetRankDiff: integer("std_net_rank_diff"),
+  stdOptZ: real("std_opt_z"),
+  stdEffZ: real("std_eff_z"),
+  stdPerfZ: real("std_perf_z"),
+  stdPowerScore: real("std_power_score"),
+  stdPowerRank: integer("std_power_rank"),
+  stdRankDiff: integer("std_rank_diff"),
 });
 
 export const vfflTransactions = vffl.table("transactions", {
@@ -299,8 +299,8 @@ export const vfflOverallAllPlayMatchups = vffl.view("overall_all_play_matchups",
 
 // Division All-Play Standings View
 export const vfflDivAllPlayStandings = vffl.view("div_all_play_standings", {
-  seasonYear: integer("season_year"),
   leagueId: integer("league_id"),
+  seasonYear: integer("season_year"),
   week: integer("week"),
   standing: integer("standing"),
   managerId: integer("manager_id"),
@@ -317,8 +317,8 @@ export const vfflDivAllPlayStandings = vffl.view("div_all_play_standings", {
 
 // Overall All-Play Standings View
 export const vfflOverallAllPlayStandings = vffl.view("overall_all_play_standings", {
-  seasonYear: integer("season_year"),
   leagueId: integer("league_id"),
+  seasonYear: integer("season_year"),
   week: integer("week"),
   standing: integer("standing"),
   managerId: integer("manager_id"),
@@ -349,6 +349,63 @@ export const vfflBaselineStandings = vffl.table("baseline_standings", {
   managerId: integer("manager_id").notNull().references(() => vfflManagers.id),
   standing: integer("standing").notNull(), // ESPN's draft_projected_rank
 });
+
+export const vfflVwMatchupHype = vffl.view("vw_matchup_hype", {
+  matchupId: integer("matchup_id"),
+  seasonYear: integer("season_year"),
+  week: integer("week"),
+  leagueName: varchar("league_name", { length: 50 }),
+  
+  homeMgr: text("home_mgr"),
+  homeTeam: text("home_team"),
+  homeLogoUrl: text("home_logo_url"),
+  homeStanding: integer("home_standing"),
+  homeRecord: text("home_record"),
+  
+  awayMgr: text("away_mgr"),
+  awayTeam: text("away_team"),
+  awayLogoUrl: text("away_logo_url"),
+  awayStanding: integer("away_standing"),
+  awayRecord: text("away_record"),
+  
+  homeWins: integer("home_wins"),
+  homeLosses: integer("home_losses"),
+  lastMeetWeek: text("last_meet_week"),
+  lastMeetWinner: text("last_meet_winner"),
+  lastMeetScore: text("last_meet_score"),
+  
+  apHomeWins: integer("ap_home_wins"),
+  apHomeLosses: integer("ap_home_losses"),
+  
+  currentStreak: integer("current_streak"),
+  currentStreakTeam: text("current_streak_team"),
+  
+  highScoreWeek: text("high_score_week"),
+  highScore: text("high_score"),
+  highScoreTeam: text("high_score_team"),
+  
+  closeScoreWeek: text("close_score_week"),
+  closeScore: text("close_score"),
+  closeScoreTeam: text("close_score_team"),
+}).existing();
+
+export const vfflVwThisWeekInHistory = vffl.view("vw_this_week_in_history", {
+  leagueName: varchar("league_name", { length: 255 }),
+  seasonYear: integer("season_year"),
+  week: integer("week"),
+  highlight: text("highlight"),
+  highlightYear: integer("highlight_year"),
+  highlightWeek: integer("highlight_week"),
+  homeTeam: text("home_team"),
+  awayTeam: text("away_team"),
+  homeFpts: real("home_fpts"),
+  homeProjected: real("home_projected"),
+  awayFpts: real("away_fpts"),
+  awayProjected: real("away_projected"),
+  totalFpts: real("total_fpts"),
+  victoryMargin: real("victory_margin"),
+  projectionMargin: real("projection_margin"),
+}).existing();
 
 // -----------------------------------------------------------------------------
 // 2. NCAA: Pick-10 Challenge

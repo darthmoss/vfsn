@@ -18,7 +18,6 @@ export default async function AdminDashboard() {
       </p>
       
       <div className="mt-8 grid grid-cols-4 gap-4">
-        {/* Placeholder cards for your four isolated schemas */}
         <div className="p-6 bg-[#1E1E24] rounded border border-gray-800 hover:border-[#FF1E27] cursor-pointer">VFFL Tools</div>
         <div className="p-6 bg-[#1E1E24] rounded border border-gray-800 hover:border-[#FF1E27] cursor-pointer">NCAA Tools</div>
         <div className="p-6 bg-[#1E1E24] rounded border border-gray-800 hover:border-[#FF1E27] cursor-pointer">VFGL Tools</div>
