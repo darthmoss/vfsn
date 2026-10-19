@@ -407,6 +407,36 @@ export const vfflVwWeeklyProps = vffl.view("vw_weekly_props", {
   supplemental: varchar("supplemental", { length: 255 }),
 }).existing();
 
+export const vfflVwTransactions = vffl.view("vw_transactions", {
+  groupId: varchar("group_id", { length: 255 }),
+  leagueId: integer("league_id"),
+  leagueName: varchar("league_name", { length: 255 }),
+  seasonYear: integer("season_year"),
+  week: integer("week"),
+  date: timestamp("date"),
+  managerId: integer("manager_id"),
+  managerName: text("manager_name"),
+  teamName: varchar("team_name", { length: 255 }),
+  bidAmount: integer("bid_amount"),
+  playersAdded: text("players_added"),
+  playersAddedPos: text("players_added_pos"),
+  playersAddedNfl: text("players_added_nfl"),
+  playersDropped: text("players_dropped"),
+  playersDroppedPos: text("players_dropped_pos"),
+  playersDroppedNfl: text("players_dropped_nfl"),
+  playersTraded: text("players_traded"),
+  transactionType: text("transaction_type"),
+}).existing();
+
+export const vfflWeeklyPlayerStatus = vffl.table("weekly_player_status", {
+  id: serial("id").primaryKey(),
+  seasonYear: integer("season_year").notNull(),
+  week: integer("week").notNull(),
+  playerId: integer("player_id").notNull().references(() => vfflPlayers.id),
+  injuryStatus: varchar("injury_status", { length: 20 }).notNull(),
+  isInjured: boolean("is_injured").notNull(),
+});
+
 // -----------------------------------------------------------------------------
 // 2. NCAA: Pick-10 Challenge
 // -----------------------------------------------------------------------------
