@@ -30,6 +30,9 @@ cursor = conn.cursor()
 print(f"Wiping existing global player stats for {year} Week {week}...")
 cursor.execute("DELETE FROM vffl.player_stats WHERE season_year = %s AND week = %s;", (year, week))
 
+print(f"Wiping existing injury statuses for {year} Week {week}...")
+cursor.execute("DELETE FROM vffl.weekly_player_status WHERE season_year = %s AND week = %s;", (year, week))
+
 # 3. Build NFL Abbreviation to ID Map from the Database
 print("Fetching NFL team mappings...")
 cursor.execute("SELECT abbrev, id FROM vffl.nfl;")
@@ -64,6 +67,31 @@ free_agents = league.free_agents(week=week, size=2000)
 for player in free_agents:
     if player.playerId not in players:
         players[player.playerId] = player
+
+# --- NEW BLOCK: Extract and Insert Weekly Injury Data ---
+print(f"Extracting Week {week} injury reports for {len(players)} players...")
+injury_insert_query = """
+    INSERT INTO vffl.weekly_player_status (season_year, week, player_id, injury_status, is_injured)
+    VALUES (%s, %s, %s, %s, %s)
+"""
+
+injury_count = 0
+for player_id, player in players.items():
+    # Safely pull the status and boolean, defaulting to ACTIVE/False if missing
+    status = getattr(player, 'injuryStatus', 'ACTIVE')
+    is_injured = getattr(player, 'injured', False)
+    
+    cursor.execute(injury_insert_query, (
+        year, 
+        week, 
+        player_id, 
+        status, 
+        is_injured
+    ))
+    injury_count += 1
+
+print(f"Successfully inserted {injury_count} injury status records!")
+# --------------------------------------------------------
 
 print(f"Extracting Week {week} stat breakdowns for {len(players)} players...")
 
