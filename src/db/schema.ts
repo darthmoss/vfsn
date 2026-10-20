@@ -5,6 +5,7 @@ import { pgSchema, serial, integer, varchar, boolean, text, real, timestamp, pgV
 // -----------------------------------------------------------------------------
 export const vffl = pgSchema("vffl");
 
+// Draft Picks Reference Table
 export const vfflDraft = vffl.table("draft", {
   id: serial("id").primaryKey(),
   seasonYear: integer("season_year").notNull(),
@@ -18,6 +19,7 @@ export const vfflDraft = vffl.table("draft", {
   pos: varchar("pos", { length: 10 })
 });
 
+// League Managers Reference Table
 export const vfflManagers = vffl.table("managers", {
   id: serial("id").primaryKey(),
   espnOwnerId: varchar("espn_owner_id", { length: 255 }),
@@ -28,6 +30,7 @@ export const vfflManagers = vffl.table("managers", {
   active: boolean("active").default(true),
 });
 
+// League Teams Reference Table
 export const vfflTeams = vffl.table("teams", {
   id: serial("id").primaryKey(),
   seasonYear: integer("season_year").notNull(),
@@ -39,6 +42,7 @@ export const vfflTeams = vffl.table("teams", {
   logoUrl: text("logo_url"),
 });
 
+// Draft Predraft Rankings Reference Table
 export const vfflPredraft = vffl.table("predraft", {
   id: serial("id").primaryKey(),
   seasonYear: integer("season_year").notNull(),
@@ -49,7 +53,7 @@ export const vfflPredraft = vffl.table("predraft", {
   projFpts: real("proj_fpts"),
 });
 
-// 1. The Head-to-Head Matchup
+// The Head-to-Head Matchup
 export const vfflMatchups = vffl.table("matchups", {
   id: serial("id").primaryKey(),
   seasonYear: integer("season_year").notNull(),
@@ -64,7 +68,7 @@ export const vfflMatchups = vffl.table("matchups", {
   awayProjected: real("away_projected"),
 });
 
-// 2. The Player Roster / Lineups
+// The Player Roster / Lineups
 export const vfflMatchupRosters = vffl.table("matchup_rosters", {
   id: serial("id").primaryKey(),
   matchupId: integer("matchup_id").notNull().references(() => vfflMatchups.id, { onDelete: "cascade" }),
@@ -83,7 +87,7 @@ export const vfflPlayers = vffl.table("players", {
   nflId: integer("nfl_id").references(() => vfflNfl.id),
 });
 
-// 3. The Granular Stat ID Breakdown
+// The Granular Stat ID Breakdown
 export const vfflMatchupPlayerStats = vffl.table("matchup_player_stats", {
   id: serial("id").primaryKey(),
   rosterId: integer("roster_id").notNull().references(() => vfflMatchupRosters.id, { onDelete: "cascade" }),
@@ -100,6 +104,7 @@ export const vfflNfl = vffl.table("nfl", {
   name: varchar("name", { length: 255 }),
 });
 
+// The Stat ID Reference Table
 export const vfflStats = vffl.table("stats", {
   statId: varchar("stat_id", { length: 50 }).primaryKey(),
   description: varchar("description", { length: 255 }).notNull(),
@@ -108,6 +113,7 @@ export const vfflStats = vffl.table("stats", {
   isDisplayed: boolean("is_displayed").default(true),
 });
 
+// H2H Standings View
 export const vfflStandings = vffl.view("standings", {
   seasonYear: integer("season_year"),
   leagueId: integer("league_id"),
@@ -125,6 +131,7 @@ export const vfflStandings = vffl.view("standings", {
   standingDiff: integer("standing_diff"),
 }).existing();
 
+// The Division Power Rankings View
 export const vfflDivisionPowerRankings = vffl.table("division_power_rankings", {
   id: serial("id").primaryKey(),
   seasonYear: integer("season_year").notNull(),
@@ -169,6 +176,7 @@ export const vfflDivisionPowerRankings = vffl.table("division_power_rankings", {
   stdRankDiff: integer("std_rank_diff"),
 });
 
+// The Overall Power Rankings View
 export const vfflOverallPowerRankings = vffl.table("overall_power_rankings", {
   id: serial("id").primaryKey(),
   seasonYear: integer("season_year").notNull(),
@@ -213,6 +221,7 @@ export const vfflOverallPowerRankings = vffl.table("overall_power_rankings", {
   stdRankDiff: integer("std_rank_diff"),
 });
 
+// The Transactions Table
 export const vfflTransactions = vffl.table("transactions", {
   id: serial("id").primaryKey(),
   groupId: varchar("group_id", { length: 255 }).notNull(),
@@ -226,6 +235,7 @@ export const vfflTransactions = vffl.table("transactions", {
   bidAmount: integer("bid_amount").default(0),
 });
 
+// Weekly Strength of Schedule (SOS) Table
 export const vfflSos = vffl.table("sos", {
   id: serial("id").primaryKey(),
   seasonYear: integer("season_year").notNull(),
@@ -238,6 +248,7 @@ export const vfflSos = vffl.table("sos", {
   sosRank: integer("sos_rank"),
 });
 
+// The Finances Table
 export const vfflFinances = vffl.table("finances", {
   id: serial("id").primaryKey(),
   leagueId: integer("league_id").notNull(),
@@ -249,6 +260,7 @@ export const vfflFinances = vffl.table("finances", {
   propsPayout: real("props_payout").default(0),
 });
 
+// The Player Stats Table
 export const vfflPlayerStats = vffl.table("player_stats", {
   id: serial("id").primaryKey(),
   seasonYear: integer("season_year").notNull(),
@@ -260,34 +272,52 @@ export const vfflPlayerStats = vffl.table("player_stats", {
   statPoints: real("stat_points"),
 });
 
-// Division All-Play View
+// Division All-Play Matchups (10-Team)
 export const vfflDivAllPlayMatchups = vffl.view("div_all_play_matchups", {
   seasonYear: integer("season_year"),
   leagueId: integer("league_id"),
+  leagueName: varchar("league_name", { length: 50 }),
   week: integer("week"),
+  
   homeMgrId: integer("home_mgr_id"),
+  homeManager: text("home_manager"),
+  homeTeam: text("home_team"),
+  
   awayMgrId: integer("away_mgr_id"),
+  awayManager: text("away_manager"),
+  awayTeam: text("away_team"),
+  
   homeFpts: real("home_fpts"),
   awayFpts: real("away_fpts"),
   diff: real("diff"),
 }).existing();
 
-// Overall All-Play View
+// Overall All-Play Matchups (20-Team)
 export const vfflOverallAllPlayMatchups = vffl.view("overall_all_play_matchups", {
   seasonYear: integer("season_year"),
-  leagueId: integer("league_id"),
   week: integer("week"),
+  
+  homeLeagueId: integer("home_league_id"),
+  homeLeagueName: varchar("home_league_name", { length: 50 }),
   homeMgrId: integer("home_mgr_id"),
+  homeManager: text("home_manager"),
+  homeTeam: text("home_team"),
+  
+  awayLeagueId: integer("away_league_id"),
+  awayLeagueName: varchar("away_league_name", { length: 50 }),
   awayMgrId: integer("away_mgr_id"),
+  awayManager: text("away_manager"),
+  awayTeam: text("away_team"),
+  
   homeFpts: real("home_fpts"),
   awayFpts: real("away_fpts"),
   diff: real("diff"),
 }).existing();
 
-// Division All-Play Standings View
+// Division All-Play Standings
 export const vfflDivAllPlayStandings = vffl.view("div_all_play_standings", {
-  leagueId: integer("league_id"),
   seasonYear: integer("season_year"),
+  leagueId: integer("league_id"),
   week: integer("week"),
   standing: integer("standing"),
   managerId: integer("manager_id"),
@@ -302,10 +332,10 @@ export const vfflDivAllPlayStandings = vffl.view("div_all_play_standings", {
   standingDiff: integer("standing_diff"),
 }).existing();
 
-// Overall All-Play Standings View
+// Overall All-Play Standings
 export const vfflOverallAllPlayStandings = vffl.view("overall_all_play_standings", {
-  leagueId: integer("league_id"),
   seasonYear: integer("season_year"),
+  leagueId: integer("league_id"),
   week: integer("week"),
   standing: integer("standing"),
   managerId: integer("manager_id"),
@@ -320,6 +350,7 @@ export const vfflOverallAllPlayStandings = vffl.view("overall_all_play_standings
   standingDiff: integer("standing_diff"),
 }).existing();
 
+// The Points Against View
 export const vfflPointsAgainst = vffl.view("points_against", {
   seasonYear: integer("season_year"),
   week: integer("week"),
@@ -329,6 +360,7 @@ export const vfflPointsAgainst = vffl.view("points_against", {
   pvo: real("pvo"),
 }).existing();
 
+// The Baseline Standings Table
 export const vfflBaselineStandings = vffl.table("baseline_standings", {
   id: serial("id").primaryKey(),
   seasonYear: integer("season_year").notNull(),
@@ -337,6 +369,7 @@ export const vfflBaselineStandings = vffl.table("baseline_standings", {
   standing: integer("standing").notNull(), // ESPN's draft_projected_rank
 });
 
+// Matchup Hype View
 export const vfflVwMatchupHype = vffl.view("vw_matchup_hype", {
   matchupId: integer("matchup_id"),
   seasonYear: integer("season_year"),
@@ -376,6 +409,7 @@ export const vfflVwMatchupHype = vffl.view("vw_matchup_hype", {
   closeScoreTeam: text("close_score_team"),
 }).existing();
 
+// This Week in History View
 export const vfflVwThisWeekInHistory = vffl.view("vw_this_week_in_history", {
   leagueName: varchar("league_name", { length: 255 }),
   seasonYear: integer("season_year"),
@@ -394,6 +428,7 @@ export const vfflVwThisWeekInHistory = vffl.view("vw_this_week_in_history", {
   projectionMargin: real("projection_margin"),
 }).existing();
 
+// The Weekly Props View
 export const vfflVwWeeklyProps = vffl.view("vw_weekly_props", {
   seasonYear: integer("season_year"),
   week: integer("week"),
@@ -407,6 +442,7 @@ export const vfflVwWeeklyProps = vffl.view("vw_weekly_props", {
   supplemental: varchar("supplemental", { length: 255 }),
 }).existing();
 
+// The Transactions View
 export const vfflVwTransactions = vffl.view("vw_transactions", {
   groupId: varchar("group_id", { length: 255 }),
   leagueId: integer("league_id"),
@@ -428,6 +464,7 @@ export const vfflVwTransactions = vffl.view("vw_transactions", {
   transactionType: text("transaction_type"),
 }).existing();
 
+// The Weekly Player Status Table
 export const vfflWeeklyPlayerStatus = vffl.table("weekly_player_status", {
   id: serial("id").primaryKey(),
   seasonYear: integer("season_year").notNull(),
@@ -437,6 +474,7 @@ export const vfflWeeklyPlayerStatus = vffl.table("weekly_player_status", {
   isInjured: boolean("is_injured").notNull(),
 });
 
+// The Weekly Injury Report View
 export const vfflVwInjuryReport = vffl.view("vw_injury_report", {
   seasonYear: integer("season_year").notNull(),
   week: integer("week").notNull(),
