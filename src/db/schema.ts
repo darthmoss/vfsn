@@ -437,6 +437,16 @@ export const vfflWeeklyPlayerStatus = vffl.table("weekly_player_status", {
   isInjured: boolean("is_injured").notNull(),
 });
 
+export const vfflVwInjuryReport = vffl.view("vw_injury_report", {
+  seasonYear: integer("season_year").notNull(),
+  week: integer("week").notNull(),
+  playerId: integer("player_id").notNull(),
+  playerName: varchar("player_name", { length: 255 }).notNull(),
+  position: varchar("position", { length: 10 }).notNull(),
+  nflTeam: varchar("nfl_team", { length: 10 }),
+  injuryStatus: varchar("injury_status", { length: 20 }).notNull(),
+}).existing();
+
 // -----------------------------------------------------------------------------
 // 2. NCAA: Pick-10 Challenge
 // -----------------------------------------------------------------------------
