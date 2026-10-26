@@ -1,5 +1,13 @@
-import { ClerkProvider } from '@clerk/nextjs'
 import './globals.css'
+import { ClerkProvider } from '@clerk/nextjs'
+import { Inter } from 'next/font/google'
+
+const inter = Inter({ subsets: ['latin'] })
+
+export const metadata = {
+  title: 'VFFL Hub',
+  description: 'Victra Fantasy Football League',
+}
 
 export default function RootLayout({
   children,
@@ -9,9 +17,10 @@ export default function RootLayout({
   return (
     <ClerkProvider>
       <html lang="en">
-        {/* Added m-0 and p-0 to kill the default browser gap */}
-        <body className="m-0 p-0 bg-[var(--vfsn-bg)] text-[var(--vfsn-text)] min-h-screen flex flex-col transition-colors duration-300">
-          {children}
+        <body className={`${inter.className} w-full min-h-screen m-0 p-0 antialiased flex flex-col bg-[var(--vfsn-bg)] text-[var(--vfsn-text)]`}>
+          <main className="flex-1 w-full min-w-0">
+            {children}
+          </main>
         </body>
       </html>
     </ClerkProvider>

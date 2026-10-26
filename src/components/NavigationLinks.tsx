@@ -33,37 +33,6 @@ export default function NavigationLinks({ isCommissioner }: { isCommissioner: bo
   return (
     <nav className="flex flex-col w-full flex-1 pb-6 px-2">
       
-      {/* CURRENT WEEK */}
-      <div className="flex flex-col gap-1 mb-6">
-        <div 
-          className="text-[11px] font-extrabold uppercase tracking-[0.15em] mb-1"
-          style={{ color: 'var(--nav-highlight, #FF1E27)', paddingLeft: '24px', paddingRight: '16px' }}
-        >
-          Current Week
-        </div>
-        
-        <Link href="/vffl/highlights" {...getLinkProps("/vffl/highlights")}>
-          <svg className="w-[20px] h-[20px] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-          <span>Highlights</span>
-        </Link>
-        <Link href="/vffl/matchup-hype" {...getLinkProps("/vffl/matchup-hype")}>
-          <svg className="w-[20px] h-[20px] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 7 9a8.001 8.001 0 007.03 2.758s-.15-4.5 3-7c0 0 1.5 3.5 1.5 6s-1.5 5.5-1.5 5.5z"></path></svg>
-          <span>Matchup Hype</span>
-        </Link>
-        <Link href="/vffl/news-wire" {...getLinkProps("/vffl/news-wire")}>
-          <svg className="w-[20px] h-[20px] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"></path></svg>
-          <span>News Wire</span>
-        </Link>
-        <Link href="/vffl/who-should-i-start" {...getLinkProps("/vffl/who-should-i-start")}>
-          <svg className="w-[20px] h-[20px] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-          <span>Who Should I Start?</span>
-        </Link>
-        <Link href="/vffl/weekly-recaps" {...getLinkProps("/vffl/weekly-recaps")}>
-          <svg className="w-[20px] h-[20px] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
-          <span>Weekly Recaps</span>
-        </Link>
-      </div>
-
       {/* LEAGUE */}
       <div className="flex flex-col gap-1 mb-6">
         <div 
@@ -72,6 +41,11 @@ export default function NavigationLinks({ isCommissioner }: { isCommissioner: bo
         >
           League
         </div>
+        
+        <Link href="/vffl/current-week" {...getLinkProps("/vffl/current-week")}>
+          <svg className="w-[20px] h-[20px] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+          <span>Current Week</span>
+        </Link>
         <Link href="/vffl/standings" {...getLinkProps("/vffl/standings")}>
           <svg className="w-[20px] h-[20px] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path></svg>
           <span>Standings</span>
@@ -83,6 +57,18 @@ export default function NavigationLinks({ isCommissioner }: { isCommissioner: bo
         <Link href="/vffl/manager-profiles" {...getLinkProps("/vffl/manager-profiles")}>
           <svg className="w-[20px] h-[20px] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
           <span>Manager Profiles</span>
+        </Link>
+        <Link href="/vffl/who-should-i-start" {...getLinkProps("/vffl/who-should-i-start")}>
+          <svg className="w-[20px] h-[20px] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+          <span>Who Should I Start?</span>
+        </Link>
+        <Link href="/vffl/news-wire" {...getLinkProps("/vffl/news-wire")}>
+          <svg className="w-[20px] h-[20px] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"></path></svg>
+          <span>News Wire</span>
+        </Link>
+        <Link href="/vffl/weekly-recaps" {...getLinkProps("/vffl/weekly-recaps")}>
+          <svg className="w-[20px] h-[20px] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+          <span>Weekly Recaps</span>
         </Link>
       </div>
 
