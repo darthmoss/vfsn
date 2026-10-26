@@ -1,0 +1,35 @@
+WITH
+    weekly_pos_totals AS (
+        SELECT
+            ps.season_year,
+            ps.week,
+            ps.opponent_id AS nfl_id,
+            p."position" AS pos,
+            sum(ps.stat_points) AS fpts
+        FROM
+            vffl.player_stats ps
+            JOIN vffl.players p ON ps.player_id = p.id
+        WHERE
+            ps.opponent_id IS NOT NULL
+        GROUP BY
+            ps.season_year,
+            ps.week,
+            ps.opponent_id,
+            p."position"
+    )
+SELECT
+    season_year,
+    week,
+    nfl_id,
+    pos,
+    fpts,
+    (
+        fpts - avg(fpts) OVER (
+            PARTITION BY
+                season_year,
+                week,
+                pos
+        )
+    ) AS pvo
+FROM
+    weekly_pos_totals;

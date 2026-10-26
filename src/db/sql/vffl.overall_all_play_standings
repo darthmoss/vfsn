@@ -1,0 +1,155 @@
+WITH
+    weekly_outcomes AS (
+        SELECT
+            overall_all_play_matchups.season_year,
+            overall_all_play_matchups.home_league_id AS league_id,
+            overall_all_play_matchups.week,
+            overall_all_play_matchups.home_mgr_id AS manager_id,
+            overall_all_play_matchups.home_fpts AS wk_pf,
+            sum(overall_all_play_matchups.away_fpts) AS wk_pa,
+            sum(
+                CASE
+                    WHEN overall_all_play_matchups.diff > 0 precision THEN 1
+                    ELSE 0
+                END
+            ) AS wk_wins,
+            sum(
+                CASE
+                    WHEN overall_all_play_matchups.diff < 0 precision THEN 1
+                    ELSE 0
+                END
+            ) AS wk_losses,
+            sum(
+                CASE
+                    WHEN overall_all_play_matchups.diff = 0 precision THEN 1
+                    ELSE 0
+                END
+            ) AS wk_ties
+        FROM
+            vffl.overall_all_play_matchups
+        GROUP BY
+            overall_all_play_matchups.season_year,
+            overall_all_play_matchups.home_league_id,
+            overall_all_play_matchups.week,
+            overall_all_play_matchups.home_mgr_id,
+            overall_all_play_matchups.home_fpts
+    ),
+    cumulative_outcomes AS (
+        SELECT
+            weekly_outcomes.season_year,
+            weekly_outcomes.league_id,
+            weekly_outcomes.week,
+            weekly_outcomes.manager_id,
+            sum(weekly_outcomes.wk_wins) OVER (
+                PARTITION BY
+                    weekly_outcomes.season_year,
+                    weekly_outcomes.manager_id
+                ORDER BY
+                    weekly_outcomes.week
+            ) AS wins,
+            sum(weekly_outcomes.wk_losses) OVER (
+                PARTITION BY
+                    weekly_outcomes.season_year,
+                    weekly_outcomes.manager_id
+                ORDER BY
+                    weekly_outcomes.week
+            ) AS losses,
+            sum(weekly_outcomes.wk_ties) OVER (
+                PARTITION BY
+                    weekly_outcomes.season_year,
+                    weekly_outcomes.manager_id
+                ORDER BY
+                    weekly_outcomes.week
+            ) AS ties,
+            sum(weekly_outcomes.wk_pf) OVER (
+                PARTITION BY
+                    weekly_outcomes.season_year,
+                    weekly_outcomes.manager_id
+                ORDER BY
+                    weekly_outcomes.week
+            ) AS points_for,
+            sum(weekly_outcomes.wk_pa) OVER (
+                PARTITION BY
+                    weekly_outcomes.season_year,
+                    weekly_outcomes.manager_id
+                ORDER BY
+                    weekly_outcomes.week
+            ) AS points_against
+        FROM
+            weekly_outcomes
+    ),
+    ranked_standings AS (
+        SELECT
+            cumulative_outcomes.season_year,
+            cumulative_outcomes.league_id,
+            cumulative_outcomes.week,
+            cumulative_outcomes.manager_id,
+            cumulative_outcomes.wins,
+            cumulative_outcomes.losses,
+            cumulative_outcomes.ties,
+            round(
+                (
+                    cumulative_outcomes.wins + cumulative_outcomes.ties * 0.5
+                ) / NULLIF(
+                    cumulative_outcomes.wins + cumulative_outcomes.losses + cumulative_outcomes.ties,
+                    0
+                ),
+                3
+            ) AS win_pct,
+            cumulative_outcomes.points_for,
+            cumulative_outcomes.points_against,
+            cumulative_outcomes.points_for - cumulative_outcomes.points_against AS diff,
+            round(
+                (
+                    (
+                        cumulative_outcomes.points_for - cumulative_outcomes.points_against
+                    ) / NULLIF(
+                        cumulative_outcomes.wins + cumulative_outcomes.losses + cumulative_outcomes.ties,
+                        0
+                    ) precision
+                ),
+                2
+            ) AS avg_diff,
+            rank() OVER (
+                PARTITION BY
+                    cumulative_outcomes.season_year,
+                    cumulative_outcomes.week
+                ORDER BY
+                    (
+                        (
+                            cumulative_outcomes.wins + cumulative_outcomes.ties * 0.5
+                        ) / NULLIF(
+                            cumulative_outcomes.wins + cumulative_outcomes.losses + cumulative_outcomes.ties,
+                            0
+                        )
+                    ) DESC,
+                    cumulative_outcomes.points_for DESC
+            ) AS standing
+        FROM
+            cumulative_outcomes
+    )
+SELECT
+    season_year,
+    league_id,
+    week,
+    standing AS standing,
+    manager_id,
+    wins AS wins,
+    losses AS losses,
+    ties AS ties,
+    win_pct,
+    points_for,
+    points_against,
+    diff,
+    avg_diff,
+    (
+        lag (standing) OVER (
+            PARTITION BY
+                season_year,
+                manager_id
+            ORDER BY
+                week
+        ) - standing
+    ) AS standing_diff
+FROM
+    ranked_standings;

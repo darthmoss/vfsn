@@ -1,0 +1,85 @@
+SELECT
+    t.group_id,
+    t.league_id,
+    l.name AS league_name,
+    t.season_year,
+    t.week,
+    t.date,
+    t.manager_id,
+    (m.first_name || ' ') || "left" (m.last_name, 1) AS manager_name,
+    tm.team_name,
+    max(t.bid_amount) AS bid_amount,
+    string_agg (
+        CASE
+            WHEN t.action_type LIKE '%ADD%' THEN p.name
+            ELSE NULL varying
+        END,
+        ', '
+    ) AS players_added,
+    string_agg (
+        CASE
+            WHEN t.action_type LIKE '%ADD%' THEN p."position"
+            ELSE NULL varying
+        END,
+        ', '
+    ) AS players_added_pos,
+    string_agg (
+        CASE
+            WHEN t.action_type LIKE '%ADD%' THEN n.abbrev
+            ELSE NULL varying
+        END,
+        ', '
+    ) AS players_added_nfl,
+    string_agg (
+        CASE
+            WHEN t.action_type LIKE '%DROP%' THEN p.name
+            ELSE NULL varying
+        END,
+        ', '
+    ) AS players_dropped,
+    string_agg (
+        CASE
+            WHEN t.action_type LIKE '%DROP%' THEN p."position"
+            ELSE NULL varying
+        END,
+        ', '
+    ) AS players_dropped_pos,
+    string_agg (
+        CASE
+            WHEN t.action_type LIKE '%DROP%' THEN n.abbrev
+            ELSE NULL varying
+        END,
+        ', '
+    ) AS players_dropped_nfl,
+    string_agg (
+        CASE
+            WHEN t.action_type LIKE '%TRADE%' THEN p.name
+            ELSE NULL varying
+        END,
+        ', '
+    ) AS players_traded,
+    CASE
+        WHEN bool_or (t.action_type LIKE '%TRADE%') THEN 'TRADE'
+        WHEN max(t.bid_amount) > 0 THEN 'WAIVER CLAIM'
+        ELSE 'FREE AGENT'
+    END AS transaction_type
+FROM
+    vffl.transactions t
+    JOIN vffl.leagues l ON t.league_id = l.league_id
+    JOIN vffl.managers m ON t.manager_id = m.id
+    LEFT JOIN vffl.teams tm ON t.manager_id = tm.manager_id
+    AND t.league_id = tm.league_id
+    AND t.season_year = tm.season_year
+    LEFT JOIN vffl.players p ON t.player_id = p.id
+    LEFT JOIN vffl.nfl n ON p.nfl_id = n.id
+GROUP BY
+    t.group_id,
+    t.league_id,
+    l.name,
+    t.season_year,
+    t.week,
+    t.date,
+    t.manager_id,
+    m.first_name,
+    m.last_name,
+    tm.team_name;

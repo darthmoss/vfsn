@@ -1,0 +1,226 @@
+WITH
+    target_weeks AS (
+        SELECT DISTINCT
+            matchups.league_id,
+            matchups.season_year AS target_year,
+            matchups.week AS target_week
+        FROM
+            vffl.matchups
+    ),
+    historical_eval AS (
+        SELECT
+            t.league_id,
+            t.target_year,
+            t.target_week,
+            h_1.season_year AS hist_year,
+            h_1.week AS hist_week,
+            h_1.home_manager_id,
+            h_1.away_manager_id,
+            h_1.home_score AS home_fpts,
+            h_1.home_projected,
+            h_1.away_score AS away_fpts,
+            h_1.away_projected,
+            h_1.home_score + h_1.away_score AS total_fpts,
+            abs(h_1.home_score - h_1.away_score) AS victory_margin,
+            h_1.home_score + h_1.away_score - (h_1.home_projected + h_1.away_projected) AS projection_margin,
+            GREATEST (h_1.home_score, h_1.away_score) AS highest_team_score
+        FROM
+            target_weeks t
+            JOIN vffl.matchups h_1 ON t.league_id = h_1.league_id
+            AND h_1.season_year < t.target_year
+            AND h_1.week = t.target_week
+        WHERE
+            h_1.home_score IS NOT NULL
+            AND h_1.away_score IS NOT NULL
+    ),
+    ranked_eval AS (
+        SELECT
+            historical_eval.league_id,
+            historical_eval.target_year,
+            historical_eval.target_week,
+            historical_eval.hist_year,
+            historical_eval.hist_week,
+            historical_eval.home_manager_id,
+            historical_eval.away_manager_id,
+            historical_eval.home_fpts,
+            historical_eval.home_projected,
+            historical_eval.away_fpts,
+            historical_eval.away_projected,
+            historical_eval.total_fpts,
+            historical_eval.victory_margin,
+            historical_eval.projection_margin,
+            historical_eval.highest_team_score,
+            row_number() OVER (
+                PARTITION BY
+                    historical_eval.league_id,
+                    historical_eval.target_year,
+                    historical_eval.target_week
+                ORDER BY
+                    historical_eval.total_fpts DESC
+            ) AS rn_highest_game,
+            row_number() OVER (
+                PARTITION BY
+                    historical_eval.league_id,
+                    historical_eval.target_year,
+                    historical_eval.target_week
+                ORDER BY
+                    historical_eval.victory_margin DESC
+            ) AS rn_blowout,
+            row_number() OVER (
+                PARTITION BY
+                    historical_eval.league_id,
+                    historical_eval.target_year,
+                    historical_eval.target_week
+                ORDER BY
+                    historical_eval.victory_margin
+            ) AS rn_tightest,
+            row_number() OVER (
+                PARTITION BY
+                    historical_eval.league_id,
+                    historical_eval.target_year,
+                    historical_eval.target_week
+                ORDER BY
+                    historical_eval.projection_margin DESC
+            ) AS rn_proj_margin,
+            row_number() OVER (
+                PARTITION BY
+                    historical_eval.league_id,
+                    historical_eval.target_year,
+                    historical_eval.target_week
+                ORDER BY
+                    historical_eval.highest_team_score DESC
+            ) AS rn_highest_team
+        FROM
+            historical_eval
+    ),
+    highlights AS (
+        SELECT
+            ranked_eval.league_id,
+            ranked_eval.target_year,
+            ranked_eval.target_week,
+            ranked_eval.hist_year,
+            ranked_eval.hist_week,
+            'Highest Scoring Game' AS highlight,
+            ranked_eval.home_manager_id,
+            ranked_eval.away_manager_id,
+            ranked_eval.home_fpts,
+            ranked_eval.home_projected,
+            ranked_eval.away_fpts,
+            ranked_eval.away_projected,
+            ranked_eval.total_fpts,
+            ranked_eval.victory_margin,
+            ranked_eval.projection_margin
+        FROM
+            ranked_eval
+        WHERE
+            ranked_eval.rn_highest_game = 1
+        UNION ALL
+        SELECT
+            ranked_eval.league_id,
+            ranked_eval.target_year,
+            ranked_eval.target_week,
+            ranked_eval.hist_year,
+            ranked_eval.hist_week,
+            'Biggest Blowout' AS highlight,
+            ranked_eval.home_manager_id,
+            ranked_eval.away_manager_id,
+            ranked_eval.home_fpts,
+            ranked_eval.home_projected,
+            ranked_eval.away_fpts,
+            ranked_eval.away_projected,
+            ranked_eval.total_fpts,
+            ranked_eval.victory_margin,
+            ranked_eval.projection_margin
+        FROM
+            ranked_eval
+        WHERE
+            ranked_eval.rn_blowout = 1
+        UNION ALL
+        SELECT
+            ranked_eval.league_id,
+            ranked_eval.target_year,
+            ranked_eval.target_week,
+            ranked_eval.hist_year,
+            ranked_eval.hist_week,
+            'Tightest Matchup' AS highlight,
+            ranked_eval.home_manager_id,
+            ranked_eval.away_manager_id,
+            ranked_eval.home_fpts,
+            ranked_eval.home_projected,
+            ranked_eval.away_fpts,
+            ranked_eval.away_projected,
+            ranked_eval.total_fpts,
+            ranked_eval.victory_margin,
+            ranked_eval.projection_margin
+        FROM
+            ranked_eval
+        WHERE
+            ranked_eval.rn_tightest = 1
+        UNION ALL
+        SELECT
+            ranked_eval.league_id,
+            ranked_eval.target_year,
+            ranked_eval.target_week,
+            ranked_eval.hist_year,
+            ranked_eval.hist_week,
+            'Highest Margin to Projection' AS highlight,
+            ranked_eval.home_manager_id,
+            ranked_eval.away_manager_id,
+            ranked_eval.home_fpts,
+            ranked_eval.home_projected,
+            ranked_eval.away_fpts,
+            ranked_eval.away_projected,
+            ranked_eval.total_fpts,
+            ranked_eval.victory_margin,
+            ranked_eval.projection_margin
+        FROM
+            ranked_eval
+        WHERE
+            ranked_eval.rn_proj_margin = 1
+        UNION ALL
+        SELECT
+            ranked_eval.league_id,
+            ranked_eval.target_year,
+            ranked_eval.target_week,
+            ranked_eval.hist_year,
+            ranked_eval.hist_week,
+            'Highest Scoring Team' AS highlight,
+            ranked_eval.home_manager_id,
+            ranked_eval.away_manager_id,
+            ranked_eval.home_fpts,
+            ranked_eval.home_projected,
+            ranked_eval.away_fpts,
+            ranked_eval.away_projected,
+            ranked_eval.total_fpts,
+            ranked_eval.victory_margin,
+            ranked_eval.projection_margin
+        FROM
+            ranked_eval
+        WHERE
+            ranked_eval.rn_highest_team = 1
+    )
+SELECT
+    l.name AS league_name,
+    h.target_year AS season_year,
+    h.target_week AS week,
+    h.highlight,
+    h.hist_year AS highlight_year,
+    h.hist_week AS highlight_week,
+    ht.team_name AS home_team,
+    at.team_name AS away_team,
+    h.home_fpts,
+    h.home_projected,
+    h.away_fpts,
+    h.away_projected,
+    h.total_fpts,
+    h.victory_margin,
+    h.projection_margin
+FROM
+    highlights h
+    JOIN vffl.leagues l ON h.league_id = l.league_id
+    JOIN vffl.teams ht ON h.home_manager_id = ht.manager_id
+    AND h.league_id = ht.league_id
+    AND h.hist_year = ht.season_year
+    JOIN vffl.teams at ON h.away_manager_id = at.manager_id
+    AND h.league_id = at.league_id
+    AND h.hist_year = at.season_year;

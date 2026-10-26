@@ -1,0 +1,333 @@
+WITH
+    team_stats AS (
+        SELECT
+            m_1.season_year,
+            m_1.week,
+            m_1.league_id,
+            m_1.home_manager_id AS manager_id,
+            m_1.home_score AS actual_fpts,
+            m_1.home_projected AS proj_fpts,
+            m_1.away_score AS opp_fpts,
+            m_1.home_score - m_1.away_score AS margin,
+            CASE
+                WHEN m_1.home_score > m_1.away_score THEN 1
+                ELSE 0
+            END AS is_winner,
+            dpr.wk_opt_fpts
+        FROM
+            vffl.matchups m_1
+            LEFT JOIN vffl.division_power_rankings dpr ON m_1.home_manager_id = dpr.manager_id
+            AND m_1.league_id = dpr.league_id
+            AND m_1.season_year = dpr.season_year
+            AND m_1.week = dpr.week
+        WHERE
+            m_1.home_score IS NOT NULL
+        UNION ALL
+        SELECT
+            m_1.season_year,
+            m_1.week,
+            m_1.league_id,
+            m_1.away_manager_id AS manager_id,
+            m_1.away_score AS actual_fpts,
+            m_1.away_projected AS proj_fpts,
+            m_1.home_score AS opp_fpts,
+            m_1.away_score - m_1.home_score AS margin,
+            CASE
+                WHEN m_1.away_score > m_1.home_score THEN 1
+                ELSE 0
+            END AS is_winner,
+            dpr.wk_opt_fpts
+        FROM
+            vffl.matchups m_1
+            LEFT JOIN vffl.division_power_rankings dpr ON m_1.away_manager_id = dpr.manager_id
+            AND m_1.league_id = dpr.league_id
+            AND m_1.season_year = dpr.season_year
+            AND m_1.week = dpr.week
+        WHERE
+            m_1.away_score IS NOT NULL
+    ),
+    team_awards AS (
+        SELECT
+            team_stats.season_year,
+            team_stats.week,
+            team_stats.league_id,
+            team_stats.manager_id,
+            team_stats.actual_fpts,
+            team_stats.proj_fpts,
+            team_stats.opp_fpts,
+            team_stats.margin,
+            team_stats.is_winner,
+            team_stats.wk_opt_fpts,
+            row_number() OVER (
+                PARTITION BY
+                    team_stats.league_id,
+                    team_stats.season_year,
+                    team_stats.week
+                ORDER BY
+                    team_stats.actual_fpts DESC
+            ) AS rn_head_of_table,
+            row_number() OVER (
+                PARTITION BY
+                    team_stats.league_id,
+                    team_stats.season_year,
+                    team_stats.week
+                ORDER BY
+                    (team_stats.actual_fpts - team_stats.proj_fpts) DESC
+            ) AS rn_overachiever,
+            row_number() OVER (
+                PARTITION BY
+                    team_stats.league_id,
+                    team_stats.season_year,
+                    team_stats.week
+                ORDER BY
+                    team_stats.margin DESC
+            ) AS rn_body_bag,
+            row_number() OVER (
+                PARTITION BY
+                    team_stats.league_id,
+                    team_stats.season_year,
+                    team_stats.week
+                ORDER BY
+                    (
+                        CASE
+                            WHEN team_stats.is_winner = 0 THEN team_stats.actual_fpts
+                            ELSE '-999'
+                        END
+                    ) DESC
+            ) AS rn_tough_luck,
+            row_number() OVER (
+                PARTITION BY
+                    team_stats.league_id,
+                    team_stats.season_year,
+                    team_stats.week
+                ORDER BY
+                    (
+                        CASE
+                            WHEN team_stats.is_winner = 1 THEN team_stats.margin
+                            ELSE 999
+                        END
+                    )
+            ) AS rn_heartbreak_kid,
+            row_number() OVER (
+                PARTITION BY
+                    team_stats.league_id,
+                    team_stats.season_year,
+                    team_stats.week
+                ORDER BY
+                    (
+                        CASE
+                            WHEN team_stats.is_winner = 1 THEN team_stats.actual_fpts
+                            ELSE 999
+                        END
+                    )
+            ) AS rn_any_given_sunday,
+            row_number() OVER (
+                PARTITION BY
+                    team_stats.league_id,
+                    team_stats.season_year,
+                    team_stats.week
+                ORDER BY
+                    (
+                        team_stats.actual_fpts / NULLIF(team_stats.wk_opt_fpts, 0 precision)
+                    ) DESC
+            ) AS rn_armchair_architect
+        FROM
+            team_stats
+    ),
+    player_stats AS (
+        SELECT
+            m_1.season_year,
+            m_1.week,
+            m_1.league_id,
+            mr.manager_id,
+            mr.player_id,
+            mr.slot_position,
+            mr.actual_fpts,
+            mr.proj_fpts,
+            row_number() OVER (
+                PARTITION BY
+                    m_1.league_id,
+                    m_1.season_year,
+                    m_1.week
+                ORDER BY
+                    mr.actual_fpts DESC
+            ) AS rn_goat,
+            row_number() OVER (
+                PARTITION BY
+                    m_1.league_id,
+                    m_1.season_year,
+                    m_1.week
+                ORDER BY
+                    (
+                        CASE
+                            WHEN mr.slot_position = 'D/ST' THEN mr.actual_fpts
+                            ELSE '-999'
+                        END
+                    ) DESC
+            ) AS rn_defense
+        FROM
+            vffl.matchup_rosters mr
+            JOIN vffl.matchups m_1 ON mr.matchup_id = m_1.id
+        WHERE
+            mr.slot_position NOT IN ('Bench', 'IR')
+    ),
+    award_winners AS (
+        SELECT
+            team_awards.league_id,
+            team_awards.season_year,
+            team_awards.week,
+            'Head of the Table' AS award,
+            'Highest Scoring Team' AS definition,
+            team_awards.manager_id,
+            NULL AS player_id,
+            team_awards.actual_fpts AS value,
+            team_awards.proj_fpts varying AS supplemental
+        FROM
+            team_awards
+        WHERE
+            team_awards.rn_head_of_table = 1
+        UNION ALL
+        SELECT
+            team_awards.league_id,
+            team_awards.season_year,
+            team_awards.week,
+            'Overachiever',
+            'Highest Margin to Projection',
+            team_awards.manager_id,
+            NULL,
+            team_awards.actual_fpts - team_awards.proj_fpts,
+            (team_awards.actual_fpts || ' - ') || team_awards.proj_fpts
+        FROM
+            team_awards
+        WHERE
+            team_awards.rn_overachiever = 1
+        UNION ALL
+        SELECT
+            team_awards.league_id,
+            team_awards.season_year,
+            team_awards.week,
+            'Body Bag',
+            'Highest Margin of Victory',
+            team_awards.manager_id,
+            NULL,
+            team_awards.margin,
+            (team_awards.actual_fpts || ' - ') || team_awards.opp_fpts
+        FROM
+            team_awards
+        WHERE
+            team_awards.rn_body_bag = 1
+        UNION ALL
+        SELECT
+            team_awards.league_id,
+            team_awards.season_year,
+            team_awards.week,
+            'Tough Luck',
+            'Highest Score for a Losing Team',
+            team_awards.manager_id,
+            NULL,
+            team_awards.actual_fpts,
+            team_awards.proj_fpts varying AS proj_fpts
+        FROM
+            team_awards
+        WHERE
+            team_awards.rn_tough_luck = 1
+        UNION ALL
+        SELECT
+            team_awards.league_id,
+            team_awards.season_year,
+            team_awards.week,
+            'Heartbreak Kid',
+            'Lowest Margin of Victory',
+            team_awards.manager_id,
+            NULL,
+            team_awards.margin,
+            (team_awards.actual_fpts || ' - ') || team_awards.opp_fpts
+        FROM
+            team_awards
+        WHERE
+            team_awards.rn_heartbreak_kid = 1
+        UNION ALL
+        SELECT
+            team_awards.league_id,
+            team_awards.season_year,
+            team_awards.week,
+            'Any Given Sunday',
+            'Lowest Score for a Winning Team',
+            team_awards.manager_id,
+            NULL,
+            team_awards.actual_fpts,
+            team_awards.proj_fpts varying AS proj_fpts
+        FROM
+            team_awards
+        WHERE
+            team_awards.rn_any_given_sunday = 1
+        UNION ALL
+        SELECT
+            team_awards.league_id,
+            team_awards.season_year,
+            team_awards.week,
+            'Armchair Architect',
+            'Most Efficient Lineup',
+            team_awards.manager_id,
+            NULL,
+            round(
+                (
+                    team_awards.actual_fpts / NULLIF(team_awards.wk_opt_fpts, 0 precision)
+                ),
+                3
+            ) AS round,
+            (team_awards.actual_fpts || ' / ') || team_awards.wk_opt_fpts
+        FROM
+            team_awards
+        WHERE
+            team_awards.rn_armchair_architect = 1
+        UNION ALL
+        SELECT
+            player_stats.league_id,
+            player_stats.season_year,
+            player_stats.week,
+            'The GOAT',
+            'Highest Scoring Player',
+            player_stats.manager_id,
+            player_stats.player_id,
+            player_stats.actual_fpts,
+            player_stats.proj_fpts varying AS proj_fpts
+        FROM
+            player_stats
+        WHERE
+            player_stats.rn_goat = 1
+        UNION ALL
+        SELECT
+            player_stats.league_id,
+            player_stats.season_year,
+            player_stats.week,
+            'You Shall Not Pass',
+            'Highest Scoring Defense',
+            player_stats.manager_id,
+            player_stats.player_id,
+            player_stats.actual_fpts,
+            player_stats.proj_fpts varying AS proj_fpts
+        FROM
+            player_stats
+        WHERE
+            player_stats.rn_defense = 1
+    )
+SELECT
+    aw.season_year,
+    aw.week,
+    l.name AS league_name,
+    (m.first_name || ' ') || "left" (m.last_name, 1) AS manager_name,
+    t.team_name,
+    p.name AS player_name,
+    aw.award,
+    aw.definition,
+    aw.value,
+    aw.supplemental
+FROM
+    award_winners aw
+    JOIN vffl.leagues l ON aw.league_id = l.league_id
+    JOIN vffl.managers m ON aw.manager_id = m.id
+    JOIN vffl.teams t ON aw.manager_id = t.manager_id
+    AND aw.league_id = t.league_id
+    AND aw.season_year = t.season_year
+    LEFT JOIN vffl.players p ON aw.player_id = p.id;

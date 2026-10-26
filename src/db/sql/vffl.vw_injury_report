@@ -1,0 +1,14 @@
+SELECT
+    wps.season_year,
+    wps.week,
+    wps.player_id,
+    p.name AS player_name,
+    p."position",
+    n.abbrev AS nfl_team,
+    wps.injury_status
+FROM
+    vffl.weekly_player_status wps
+    JOIN vffl.players p ON wps.player_id = p.id
+    LEFT JOIN vffl.nfl n ON p.nfl_id = n.id
+WHERE
+    wps.is_injured = true;

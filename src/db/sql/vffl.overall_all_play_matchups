@@ -1,0 +1,31 @@
+SELECT
+    h.season_year,
+    h.week,
+    h.league_id AS home_league_id,
+    hl.name AS home_league_name,
+    h.manager_id AS home_mgr_id,
+    (hm.first_name || ' ') || "left" (hm.last_name, 1) AS home_manager,
+    ht.team_name AS home_team,
+    a.league_id AS away_league_id,
+    al.name AS away_league_name,
+    a.manager_id AS away_mgr_id,
+    (am.first_name || ' ') || "left" (am.last_name, 1) AS away_manager,
+    at.team_name AS away_team,
+    h.points_for AS home_fpts,
+    a.points_for AS away_fpts,
+    h.points_for - a.points_for AS diff
+FROM
+    vffl.standings h
+    JOIN vffl.standings a ON h.season_year = a.season_year
+    AND h.week = a.week
+    AND h.manager_id <> a.manager_id
+    JOIN vffl.leagues hl ON h.league_id = hl.league_id
+    JOIN vffl.managers hm ON h.manager_id = hm.id
+    JOIN vffl.teams ht ON h.manager_id = ht.manager_id
+    AND h.league_id = ht.league_id
+    AND h.season_year = ht.season_year
+    JOIN vffl.leagues al ON a.league_id = al.league_id
+    JOIN vffl.managers am ON a.manager_id = am.id
+    JOIN vffl.teams at ON a.manager_id = at.manager_id
+    AND a.league_id = at.league_id
+    AND a.season_year = at.season_year;

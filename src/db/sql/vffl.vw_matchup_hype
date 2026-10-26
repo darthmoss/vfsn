@@ -1,0 +1,305 @@
+WITH
+    unpivoted_scores AS (
+        SELECT
+            matchups.season_year,
+            matchups.week,
+            matchups.home_manager_id AS manager_id,
+            matchups.home_score AS score
+        FROM
+            vffl.matchups
+        WHERE
+            matchups.home_score IS NOT NULL
+        UNION ALL
+        SELECT
+            matchups.season_year,
+            matchups.week,
+            matchups.away_manager_id AS manager_id,
+            matchups.away_score AS score
+        FROM
+            vffl.matchups
+        WHERE
+            matchups.away_score IS NOT NULL
+            AND matchups.away_manager_id IS NOT NULL
+    ),
+    all_play_agg AS (
+        SELECT
+            m_1.id AS matchup_id,
+            sum(
+                CASE
+                    WHEN h.score > a.score THEN 1
+                    ELSE 0
+                END
+            ) AS ap_home_wins,
+            sum(
+                CASE
+                    WHEN h.score < a.score THEN 1
+                    ELSE 0
+                END
+            ) AS ap_home_losses
+        FROM
+            vffl.matchups m_1
+            JOIN unpivoted_scores h ON h.manager_id = m_1.home_manager_id
+            JOIN unpivoted_scores a ON a.manager_id = m_1.away_manager_id
+            AND h.season_year = a.season_year
+            AND h.week = a.week
+            AND (
+                h.season_year < m_1.season_year
+                OR h.season_year = m_1.season_year
+                AND h.week < m_1.week
+            )
+        GROUP BY
+            m_1.id
+    ),
+    h2h_base AS (
+        SELECT
+            m_1.id AS matchup_id,
+            m_1.home_manager_id AS current_home,
+            m_1.away_manager_id AS current_away,
+            hist.season_year,
+            hist.week,
+            CASE
+                WHEN hist.home_manager_id = m_1.home_manager_id THEN hist.home_score
+                ELSE hist.away_score
+            END AS h_score,
+            CASE
+                WHEN hist.home_manager_id = m_1.away_manager_id THEN hist.home_score
+                ELSE hist.away_score
+            END AS a_score,
+            hist.home_score + hist.away_score AS total_points,
+            abs(hist.home_score - hist.away_score) AS margin,
+            CASE
+                WHEN hist.home_manager_id = m_1.home_manager_id
+                AND hist.home_score > hist.away_score
+                OR hist.away_manager_id = m_1.home_manager_id
+                AND hist.away_score > hist.home_score THEN m_1.home_manager_id
+                WHEN hist.home_manager_id = m_1.away_manager_id
+                AND hist.home_score > hist.away_score
+                OR hist.away_manager_id = m_1.away_manager_id
+                AND hist.away_score > hist.home_score THEN m_1.away_manager_id
+                ELSE NULL
+            END AS winner_id
+        FROM
+            vffl.matchups m_1
+            JOIN vffl.matchups hist ON (
+                hist.home_manager_id = m_1.home_manager_id
+                AND hist.away_manager_id = m_1.away_manager_id
+                OR hist.home_manager_id = m_1.away_manager_id
+                AND hist.away_manager_id = m_1.home_manager_id
+            )
+            AND (
+                hist.season_year < m_1.season_year
+                OR hist.season_year = m_1.season_year
+                AND hist.week < m_1.week
+            )
+        WHERE
+            hist.home_score IS NOT NULL
+            AND hist.away_score IS NOT NULL
+    ),
+    h2h_ranked AS (
+        SELECT
+            h2h_base.matchup_id,
+            h2h_base.current_home,
+            h2h_base.current_away,
+            h2h_base.season_year,
+            h2h_base.week,
+            h2h_base.h_score,
+            h2h_base.a_score,
+            h2h_base.total_points,
+            h2h_base.margin,
+            h2h_base.winner_id,
+            row_number() OVER (
+                PARTITION BY
+                    h2h_base.matchup_id
+                ORDER BY
+                    h2h_base.season_year DESC,
+                    h2h_base.week DESC
+            ) AS rn_last,
+            row_number() OVER (
+                PARTITION BY
+                    h2h_base.matchup_id
+                ORDER BY
+                    h2h_base.total_points DESC
+            ) AS rn_high,
+            row_number() OVER (
+                PARTITION BY
+                    h2h_base.matchup_id
+                ORDER BY
+                    h2h_base.margin
+            ) AS rn_close,
+            row_number() OVER (
+                PARTITION BY
+                    h2h_base.matchup_id
+                ORDER BY
+                    h2h_base.season_year DESC,
+                    h2h_base.week DESC
+            ) - row_number() OVER (
+                PARTITION BY
+                    h2h_base.matchup_id,
+                    h2h_base.winner_id
+                ORDER BY
+                    h2h_base.season_year DESC,
+                    h2h_base.week DESC
+            ) AS streak_group
+        FROM
+            h2h_base
+    ),
+    h2h_metrics AS (
+        SELECT
+            r.matchup_id,
+            sum(
+                CASE
+                    WHEN r.winner_id = r.current_home THEN 1
+                    ELSE 0
+                END
+            ) AS home_wins,
+            sum(
+                CASE
+                    WHEN r.winner_id = r.current_away THEN 1
+                    ELSE 0
+                END
+            ) AS home_losses,
+            max(
+                CASE
+                    WHEN r.rn_last = 1 THEN (r.season_year || ' Wk ') || r.week
+                    ELSE NULL
+                END
+            ) AS last_meet_week,
+            max(
+                CASE
+                    WHEN r.rn_last = 1 THEN r.winner_id
+                    ELSE NULL
+                END
+            ) AS last_meet_winner_id,
+            max(
+                CASE
+                    WHEN r.rn_last = 1 THEN (r.h_score || ' - ') || r.a_score
+                    ELSE NULL
+                END
+            ) AS last_meet_score,
+            max(
+                CASE
+                    WHEN r.rn_high = 1 THEN (r.season_year || ' Wk ') || r.week
+                    ELSE NULL
+                END
+            ) AS high_score_week,
+            max(
+                CASE
+                    WHEN r.rn_high = 1 THEN (r.h_score || ' - ') || r.a_score
+                    ELSE NULL
+                END
+            ) AS high_score,
+            max(
+                CASE
+                    WHEN r.rn_high = 1 THEN r.winner_id
+                    ELSE NULL
+                END
+            ) AS high_score_winner_id,
+            max(
+                CASE
+                    WHEN r.rn_close = 1 THEN (r.season_year || ' Wk ') || r.week
+                    ELSE NULL
+                END
+            ) AS close_score_week,
+            max(
+                CASE
+                    WHEN r.rn_close = 1 THEN (r.h_score || ' - ') || r.a_score
+                    ELSE NULL
+                END
+            ) AS close_score,
+            max(
+                CASE
+                    WHEN r.rn_close = 1 THEN r.winner_id
+                    ELSE NULL
+                END
+            ) AS close_score_winner_id,
+            (
+                (
+                    SELECT
+                        count(*) AS count
+                    FROM
+                        h2h_ranked r2
+                    WHERE
+                        r2.matchup_id = r.matchup_id
+                        AND r2.winner_id = max(
+                            CASE
+                                WHEN r.rn_last = 1 THEN r.winner_id
+                                ELSE NULL
+                            END
+                        )
+                        AND r2.streak_group = 0
+                )
+            ) AS current_streak,
+            max(
+                CASE
+                    WHEN r.rn_last = 1 THEN r.winner_id
+                    ELSE NULL
+                END
+            ) AS current_streak_winner_id
+        FROM
+            h2h_ranked r
+        GROUP BY
+            r.matchup_id
+    )
+SELECT
+    m.id AS matchup_id,
+    m.season_year,
+    m.week,
+    l.name AS league_name,
+    (hm.first_name || ' ') || "left" (hm.last_name, 1) AS home_mgr,
+    ht.team_name AS home_team,
+    ht.logo_url AS home_logo_url,
+    COALESCE(hs.standing, 0) AS home_standing,
+    COALESCE((hs.wins || '-') || hs.losses, '0-0') AS home_record,
+    (am.first_name || ' ') || "left" (am.last_name, 1) AS away_mgr,
+    at.team_name AS away_team,
+    at.logo_url AS away_logo_url,
+    COALESCE(as_std.standing, 0) AS away_standing,
+    COALESCE((as_std.wins || '-') || as_std.losses, '0-0') AS away_record,
+    COALESCE(h2h.home_wins, 0) AS home_wins,
+    COALESCE(h2h.home_losses, 0) AS home_losses,
+    h2h.last_meet_week,
+    COALESCE(lm_team.team_name, 'None' varying) AS last_meet_winner,
+    h2h.last_meet_score,
+    COALESCE(ap.ap_home_wins, 0) AS ap_home_wins,
+    COALESCE(ap.ap_home_losses, 0) AS ap_home_losses,
+    COALESCE(h2h.current_streak, 0) AS current_streak,
+    COALESCE(st_team.team_name, 'None' varying) AS current_streak_team,
+    h2h.high_score_week,
+    h2h.high_score,
+    COALESCE(hs_team.team_name, 'None' varying) AS high_score_team,
+    h2h.close_score_week,
+    h2h.close_score,
+    COALESCE(cs_team.team_name, 'None' varying) AS close_score_team
+FROM
+    vffl.matchups m
+    JOIN vffl.leagues l ON m.league_id = l.league_id
+    JOIN vffl.managers hm ON m.home_manager_id = hm.id
+    JOIN vffl.teams ht ON m.home_manager_id = ht.manager_id
+    AND m.league_id = ht.league_id
+    AND m.season_year = ht.season_year
+    JOIN vffl.managers am ON m.away_manager_id = am.id
+    JOIN vffl.teams at ON m.away_manager_id = at.manager_id
+    AND m.league_id = at.league_id
+    AND m.season_year = at.season_year
+    LEFT JOIN vffl.standings hs ON hs.manager_id = m.home_manager_id
+    AND hs.league_id = m.league_id
+    AND hs.season_year = m.season_year
+    AND hs.week = (m.week - 1)
+    LEFT JOIN vffl.standings as_std ON as_std.manager_id = m.away_manager_id
+    AND as_std.league_id = m.league_id
+    AND as_std.season_year = m.season_year
+    AND as_std.week = (m.week - 1)
+    LEFT JOIN h2h_metrics h2h ON m.id = h2h.matchup_id
+    LEFT JOIN all_play_agg ap ON m.id = ap.matchup_id
+    LEFT JOIN vffl.teams lm_team ON h2h.last_meet_winner_id = lm_team.manager_id
+    AND m.league_id = lm_team.league_id
+    AND m.season_year = lm_team.season_year
+    LEFT JOIN vffl.teams st_team ON h2h.current_streak_winner_id = st_team.manager_id
+    AND m.league_id = st_team.league_id
+    AND m.season_year = st_team.season_year
+    LEFT JOIN vffl.teams hs_team ON h2h.high_score_winner_id = hs_team.manager_id
+    AND m.league_id = hs_team.league_id
+    AND m.season_year = hs_team.season_year
+    LEFT JOIN vffl.teams cs_team ON h2h.close_score_winner_id = cs_team.manager_id
+    AND m.league_id = cs_team.league_id
+    AND m.season_year = cs_team.season_year;
