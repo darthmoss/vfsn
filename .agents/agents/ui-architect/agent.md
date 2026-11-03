@@ -1,7 +1,9 @@
 ---
+name: ui-architect
 description: "Frontend specialist for Next.js and Tailwind CSS."
 provider: anthropic
 model: claude-5.5-opus
+subagent: true
 ---
 
 # Role: Frontend UI Architect
