@@ -1,0 +1,35 @@
+SELECT
+    l.name AS league_name,
+    m.season_year,
+    m.week,
+    m.matchup_type,
+    (hm.first_name || ' ') || "left" (hm.last_name, 1) AS home_mgr,
+    ht.team_name AS home_team,
+    COALESCE(hs.standing, 0) AS home_standing,
+    m.home_projected,
+    m.home_score,
+    (am.first_name || ' ') || "left" (am.last_name, 1) AS away_mgr,
+    at.team_name AS away_team,
+    COALESCE(as_std.standing, 0) AS away_standing,
+    m.away_projected,
+    m.away_score
+FROM
+    vffl.matchups m
+    JOIN vffl.leagues l ON m.league_id = l.league_id
+    JOIN vffl.managers hm ON m.home_manager_id = hm.id
+    JOIN vffl.teams ht ON m.home_manager_id = ht.manager_id
+    AND m.league_id = ht.league_id
+    AND m.season_year = ht.season_year
+    JOIN vffl.managers am ON m.away_manager_id = am.id
+    JOIN vffl.teams at ON m.away_manager_id = at.manager_id
+    AND m.league_id = at.league_id
+    AND m.season_year = at.season_year
+    LEFT JOIN vffl.standings hs ON hs.manager_id = m.home_manager_id
+    AND hs.league_id = m.league_id
+    AND hs.season_year = m.season_year
+    AND hs.week = (m.week - 1)
+    LEFT JOIN vffl.standings as_std ON as_std.manager_id = m.away_manager_id
+    AND as_std.league_id = m.league_id
+    AND as_std.season_year = m.season_year
+    AND as_std.week = (m.week - 1);
+

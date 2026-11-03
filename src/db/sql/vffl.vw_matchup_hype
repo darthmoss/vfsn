@@ -257,19 +257,29 @@ SELECT
     COALESCE((as_std.wins || '-') || as_std.losses, '0-0') AS away_record,
     COALESCE(h2h.home_wins, 0) AS home_wins,
     COALESCE(h2h.home_losses, 0) AS home_losses,
+    CASE
+        WHEN COALESCE(h2h.home_wins, 0) > COALESCE(h2h.home_losses, 0) THEN ht.team_name
+        WHEN COALESCE(h2h.home_wins, 0) < COALESCE(h2h.home_losses, 0) THEN at.team_name
+        ELSE 'The Series Is Tied'
+    END AS h2h_leader,
     h2h.last_meet_week,
-    COALESCE(lm_team.team_name, 'None' varying) AS last_meet_winner,
+    COALESCE(lm_team.team_name, 'None'::character varying) AS last_meet_winner,
     h2h.last_meet_score,
     COALESCE(ap.ap_home_wins, 0) AS ap_home_wins,
     COALESCE(ap.ap_home_losses, 0) AS ap_home_losses,
+    CASE
+        WHEN COALESCE(ap.ap_home_wins, 0) > COALESCE(ap.ap_home_losses, 0) THEN ht.team_name
+        WHEN COALESCE(ap.ap_home_wins, 0) < COALESCE(ap.ap_home_losses, 0) THEN at.team_name
+        ELSE 'The Series Is Tied'
+    END AS ap_leader,
     COALESCE(h2h.current_streak, 0) AS current_streak,
-    COALESCE(st_team.team_name, 'None' varying) AS current_streak_team,
+    COALESCE(st_team.team_name, 'None'::character varying) AS current_streak_team,
     h2h.high_score_week,
     h2h.high_score,
-    COALESCE(hs_team.team_name, 'None' varying) AS high_score_team,
+    COALESCE(hs_team.team_name, 'None'::character varying) AS high_score_team,
     h2h.close_score_week,
     h2h.close_score,
-    COALESCE(cs_team.team_name, 'None' varying) AS close_score_team
+    COALESCE(cs_team.team_name, 'None'::character varying) AS close_score_team
 FROM
     vffl.matchups m
     JOIN vffl.leagues l ON m.league_id = l.league_id

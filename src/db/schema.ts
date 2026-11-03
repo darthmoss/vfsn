@@ -390,12 +390,14 @@ export const vfflVwMatchupHype = vffl.view("vw_matchup_hype", {
   
   homeWins: integer("home_wins"),
   homeLosses: integer("home_losses"),
+  h2hLeader: text("h2h_leader"),
   lastMeetWeek: text("last_meet_week"),
   lastMeetWinner: text("last_meet_winner"),
   lastMeetScore: text("last_meet_score"),
   
   apHomeWins: integer("ap_home_wins"),
   apHomeLosses: integer("ap_home_losses"),
+  apLeader: text("ap_leader"),
   
   currentStreak: integer("current_streak"),
   currentStreakTeam: text("current_streak_team"),
@@ -483,6 +485,26 @@ export const vfflVwInjuryReport = vffl.view("vw_injury_report", {
   position: varchar("position", { length: 10 }).notNull(),
   nflTeam: varchar("nfl_team", { length: 10 }),
   injuryStatus: varchar("injury_status", { length: 20 }).notNull(),
+}).existing();
+
+// The H2H Matchups View
+export const vfflVwMatchups = vffl.view("vw_matchups", {
+  leagueName: varchar("league_name", { length: 50 }),
+  seasonYear: integer("season_year"),
+  week: integer("week"),
+  matchupType: varchar("matchup_type", { length: 50 }),
+  
+  homeMgr: text("home_mgr"),
+  homeTeam: text("home_team"),
+  homeStanding: integer("home_standing"),
+  homeProjected: real("home_projected"),
+  homeScore: real("home_score"),
+  
+  awayMgr: text("away_mgr"),
+  awayTeam: text("away_team"),
+  awayStanding: integer("away_standing"),
+  awayProjected: real("away_projected"),
+  awayScore: real("away_score"),
 }).existing();
 
 // -----------------------------------------------------------------------------
