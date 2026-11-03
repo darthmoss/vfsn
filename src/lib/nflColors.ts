@@ -160,9 +160,9 @@ export const nflThemes: Record<string, TeamTheme> = {
     navHighlight: { name: "Titans Blue", hex: "#4B92DB" }, 
     navText: { name: "Red", hex: "#C8102E" } 
   },
-  WAS : { 
-    navBackground: { name: "Burgundy", hex: "#5A1414" }, 
-    navHighlight: { name: "Gold", hex: "#FFB612" }, 
-    navText: { name: "White", hex: "#FFFFFF" } 
+  WAS: {
+    navBackground: { name: "Burgundy", hex: "#5A1414" },
+    navHighlight: { name: "Gold", hex: "#FFB612" },
+    navText: { name: "White", hex: "#FFFFFF" }
   }
 };
