@@ -5,6 +5,7 @@
 :root {
   --vfsn-bg: #0b0f19;
   --vfsn-surface: #172033;
+  --vfsn-border: rgba(255, 255, 255, 0.1);
   --vfsn-text: #f8fafc;
   --vfsn-accent-1: #FF1E27;
   --vfsn-accent-2: #FFFFFF;
