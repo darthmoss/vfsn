@@ -12,49 +12,49 @@ SELECT
     string_agg (
         CASE
             WHEN t.action_type LIKE '%ADD%' THEN p.name
-            ELSE NULL varying
+            ELSE NULL::character varying
         END,
         ', '
     ) AS players_added,
     string_agg (
         CASE
             WHEN t.action_type LIKE '%ADD%' THEN p."position"
-            ELSE NULL varying
+            ELSE NULL::character varying
         END,
         ', '
     ) AS players_added_pos,
     string_agg (
         CASE
             WHEN t.action_type LIKE '%ADD%' THEN n.abbrev
-            ELSE NULL varying
+            ELSE NULL::character varying
         END,
         ', '
     ) AS players_added_nfl,
     string_agg (
         CASE
             WHEN t.action_type LIKE '%DROP%' THEN p.name
-            ELSE NULL varying
+            ELSE NULL::character varying
         END,
         ', '
     ) AS players_dropped,
     string_agg (
         CASE
             WHEN t.action_type LIKE '%DROP%' THEN p."position"
-            ELSE NULL varying
+            ELSE NULL::character varying
         END,
         ', '
     ) AS players_dropped_pos,
     string_agg (
         CASE
             WHEN t.action_type LIKE '%DROP%' THEN n.abbrev
-            ELSE NULL varying
+            ELSE NULL::character varying
         END,
         ', '
     ) AS players_dropped_nfl,
     string_agg (
         CASE
             WHEN t.action_type LIKE '%TRADE%' THEN p.name
-            ELSE NULL varying
+            ELSE NULL::character varying
         END,
         ', '
     ) AS players_traded,
@@ -66,6 +66,7 @@ SELECT
 FROM
     vffl.transactions t
     JOIN vffl.leagues l ON t.league_id = l.league_id
+    AND t.season_year = l.season_year
     JOIN vffl.managers m ON t.manager_id = m.id
     LEFT JOIN vffl.teams tm ON t.manager_id = tm.manager_id
     AND t.league_id = tm.league_id

@@ -5,6 +5,18 @@ import { pgSchema, serial, integer, varchar, boolean, text, real, timestamp, pgV
 // -----------------------------------------------------------------------------
 export const vffl = pgSchema("vffl");
 
+// League Settings & Current Week Reference Table
+export const vfflLeagues = vffl.table("leagues", {
+  id: serial("id").primaryKey(),
+  leagueId: integer("league_id").notNull(),
+  seasonYear: integer("season_year").notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  teamCount: integer("team_count"),
+  currentWeek: integer("current_week").notNull(),
+  regSeasonCount: integer("reg_season_count"),
+  scoringType: varchar("scoring_type", { length: 50 }),
+});
+
 // Draft Picks Reference Table
 export const vfflDraft = vffl.table("draft", {
   id: serial("id").primaryKey(),
@@ -381,12 +393,16 @@ export const vfflVwMatchupHype = vffl.view("vw_matchup_hype", {
   homeLogoUrl: text("home_logo_url"),
   homeStanding: integer("home_standing"),
   homeRecord: text("home_record"),
+  homeScore: real("home_score"),
+  homeProjected: real("home_projected"),
   
   awayMgr: text("away_mgr"),
   awayTeam: text("away_team"),
   awayLogoUrl: text("away_logo_url"),
   awayStanding: integer("away_standing"),
   awayRecord: text("away_record"),
+  awayScore: real("away_score"),
+  awayProjected: real("away_projected"),
   
   homeWins: integer("home_wins"),
   homeLosses: integer("home_losses"),

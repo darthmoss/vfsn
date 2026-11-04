@@ -250,11 +250,15 @@ SELECT
     ht.logo_url AS home_logo_url,
     COALESCE(hs.standing, 0) AS home_standing,
     COALESCE((hs.wins || '-') || hs.losses, '0-0') AS home_record,
+    m.home_score,
+    m.home_projected,
     (am.first_name || ' ') || "left" (am.last_name, 1) AS away_mgr,
     at.team_name AS away_team,
     at.logo_url AS away_logo_url,
     COALESCE(as_std.standing, 0) AS away_standing,
     COALESCE((as_std.wins || '-') || as_std.losses, '0-0') AS away_record,
+    m.away_score,
+    m.away_projected,
     COALESCE(h2h.home_wins, 0) AS home_wins,
     COALESCE(h2h.home_losses, 0) AS home_losses,
     CASE
@@ -283,6 +287,7 @@ SELECT
 FROM
     vffl.matchups m
     JOIN vffl.leagues l ON m.league_id = l.league_id
+    AND m.season_year = l.season_year
     JOIN vffl.managers hm ON m.home_manager_id = hm.id
     JOIN vffl.teams ht ON m.home_manager_id = ht.manager_id
     AND m.league_id = ht.league_id

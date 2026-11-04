@@ -218,6 +218,7 @@ SELECT
 FROM
     highlights h
     JOIN vffl.leagues l ON h.league_id = l.league_id
+    AND h.target_year = l.season_year
     JOIN vffl.teams ht ON h.home_manager_id = ht.manager_id
     AND h.league_id = ht.league_id
     AND h.hist_year = ht.season_year

@@ -128,7 +128,7 @@ WITH
                     team_stats.week
                 ORDER BY
                     (
-                        team_stats.actual_fpts / NULLIF(team_stats.wk_opt_fpts, 0 precision)
+                        team_stats.actual_fpts / NULLIF(team_stats.wk_opt_fpts, 0)
                     ) DESC
             ) AS rn_armchair_architect
         FROM
@@ -179,9 +179,9 @@ WITH
             'Head of the Table' AS award,
             'Highest Scoring Team' AS definition,
             team_awards.manager_id,
-            NULL AS player_id,
+            NULL::integer AS player_id,
             team_awards.actual_fpts AS value,
-            team_awards.proj_fpts varying AS supplemental
+            team_awards.proj_fpts::character varying AS supplemental
         FROM
             team_awards
         WHERE
@@ -194,7 +194,7 @@ WITH
             'Overachiever',
             'Highest Margin to Projection',
             team_awards.manager_id,
-            NULL,
+            NULL::integer,
             team_awards.actual_fpts - team_awards.proj_fpts,
             (team_awards.actual_fpts || ' - ') || team_awards.proj_fpts
         FROM
@@ -209,7 +209,7 @@ WITH
             'Body Bag',
             'Highest Margin of Victory',
             team_awards.manager_id,
-            NULL,
+            NULL::integer,
             team_awards.margin,
             (team_awards.actual_fpts || ' - ') || team_awards.opp_fpts
         FROM
@@ -224,9 +224,9 @@ WITH
             'Tough Luck',
             'Highest Score for a Losing Team',
             team_awards.manager_id,
-            NULL,
+            NULL::integer,
             team_awards.actual_fpts,
-            team_awards.proj_fpts varying AS proj_fpts
+            team_awards.proj_fpts::character varying AS proj_fpts
         FROM
             team_awards
         WHERE
@@ -239,7 +239,7 @@ WITH
             'Heartbreak Kid',
             'Lowest Margin of Victory',
             team_awards.manager_id,
-            NULL,
+            NULL::integer,
             team_awards.margin,
             (team_awards.actual_fpts || ' - ') || team_awards.opp_fpts
         FROM
@@ -254,9 +254,9 @@ WITH
             'Any Given Sunday',
             'Lowest Score for a Winning Team',
             team_awards.manager_id,
-            NULL,
+            NULL::integer,
             team_awards.actual_fpts,
-            team_awards.proj_fpts varying AS proj_fpts
+            team_awards.proj_fpts::character varying AS proj_fpts
         FROM
             team_awards
         WHERE
@@ -269,13 +269,13 @@ WITH
             'Armchair Architect',
             'Most Efficient Lineup',
             team_awards.manager_id,
-            NULL,
+            NULL::integer,
             round(
                 (
-                    team_awards.actual_fpts / NULLIF(team_awards.wk_opt_fpts, 0 precision)
-                ),
+                    team_awards.actual_fpts / NULLIF(team_awards.wk_opt_fpts, 0)
+                )::numeric,
                 3
-            ) AS round,
+            )::real AS round,
             (team_awards.actual_fpts || ' / ') || team_awards.wk_opt_fpts
         FROM
             team_awards
@@ -291,7 +291,7 @@ WITH
             player_stats.manager_id,
             player_stats.player_id,
             player_stats.actual_fpts,
-            player_stats.proj_fpts varying AS proj_fpts
+            player_stats.proj_fpts::character varying AS proj_fpts
         FROM
             player_stats
         WHERE
@@ -306,7 +306,7 @@ WITH
             player_stats.manager_id,
             player_stats.player_id,
             player_stats.actual_fpts,
-            player_stats.proj_fpts varying AS proj_fpts
+            player_stats.proj_fpts::character varying AS proj_fpts
         FROM
             player_stats
         WHERE
@@ -326,6 +326,7 @@ SELECT
 FROM
     award_winners aw
     JOIN vffl.leagues l ON aw.league_id = l.league_id
+    AND aw.season_year = l.season_year
     JOIN vffl.managers m ON aw.manager_id = m.id
     JOIN vffl.teams t ON aw.manager_id = t.manager_id
     AND aw.league_id = t.league_id
