@@ -25,6 +25,44 @@ function formatPlayerWithPos(
     .join(", ");
 }
 
+function AddedArrowIcon() {
+  return (
+    <svg
+      className="w-4 h-4 shrink-0"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2.5"
+        d="M7 17L17 7m0 0H8m9 0v9"
+      />
+    </svg>
+  );
+}
+
+function DroppedArrowIcon() {
+  return (
+    <svg
+      className="w-4 h-4 shrink-0"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2.5"
+        d="M7 7l10 10m0 0V8m0 9H8"
+      />
+    </svg>
+  );
+}
+
 export default function TransactionsWire({
   transactions,
 }: TransactionsWireProps) {
@@ -36,15 +74,18 @@ export default function TransactionsWire({
 
   return (
     <section
-      className="w-full rounded-[12px] border border-[var(--vfsn-border)] p-6 shadow-[0_4px_20px_rgba(0,0,0,0.25)] flex flex-col gap-4"
-      style={{ backgroundColor: "var(--vfsn-surface)" }}
+      className="w-full rounded-[12px] border border-[var(--vfsn-border)] p-6 shadow-[0_4px_20px_rgba(0,0,0,0.25)] flex flex-col gap-4 transition-colors duration-300"
+      style={{
+        backgroundColor: "var(--nav-background, var(--vfsn-surface))",
+        color: "var(--nav-text, var(--vfsn-text))",
+      }}
     >
       {/* Card Header */}
       <div className="flex items-center justify-between pb-3 border-b border-[var(--vfsn-border)]">
         <div>
           <span
             className="text-[10px] font-extrabold uppercase tracking-[0.16em] block"
-            style={{ color: "var(--vfsn-accent-1)" }}
+            style={{ color: "var(--nav-highlight, var(--vfsn-accent-1))" }}
           >
             League Activity • Most Recent First
           </span>
@@ -52,7 +93,7 @@ export default function TransactionsWire({
             Transactions
           </h2>
         </div>
-        <span className="text-xs font-extrabold opacity-60">
+        <span className="text-xs font-extrabold opacity-75">
           {sortedTransactions.length} Moves
         </span>
       </div>
@@ -64,8 +105,8 @@ export default function TransactionsWire({
             <tr
               className="border-b border-[var(--vfsn-border)] text-[10px] font-extrabold uppercase tracking-[0.14em]"
               style={{
-                backgroundColor: "var(--vfsn-surface)",
-                color: "var(--vfsn-accent-1)",
+                backgroundColor: "rgba(0, 0, 0, 0.3)",
+                color: "var(--nav-text, var(--vfsn-text))",
               }}
             >
               <th className="py-3 px-3">Team Name</th>
@@ -88,34 +129,42 @@ export default function TransactionsWire({
               return (
                 <tr
                   key={tx.groupId ?? `tx-${idx}`}
-                  className="transition-colors hover:bg-white/[0.02]"
-                  style={{ backgroundColor: "var(--vfsn-bg)" }}
+                  className="transition-colors hover:bg-white/[0.04]"
+                  style={{ backgroundColor: "rgba(0, 0, 0, 0.15)" }}
                 >
                   {/* 1. Team Name */}
                   <td className="py-3 px-3 align-top">
-                    <div className="font-bold leading-tight">
+                    <div
+                      className="font-bold leading-tight"
+                      style={{ color: "var(--nav-highlight, var(--vfsn-accent-1))" }}
+                    >
                       {tx.teamName ?? "Unknown Team"}
                     </div>
-                    <div className="text-[10px] font-semibold opacity-60">
+                    <div className="text-[10px] font-semibold opacity-75">
                       {tx.managerName}
                     </div>
                   </td>
 
                   {/* 2. Added (Player - POS) */}
                   <td className="py-3 px-3 align-top">
-                    <span
-                      className="font-bold"
-                      style={{ color: "var(--vfsn-accent-1)" }}
+                    <div
+                      className="inline-flex items-center gap-1.5 font-bold"
+                      style={{ color: "var(--nav-highlight, var(--vfsn-accent-1))" }}
                     >
-                      +{addedFormatted}
-                    </span>
+                      <AddedArrowIcon />
+                      <span>{addedFormatted}</span>
+                    </div>
                   </td>
 
                   {/* 3. Dropped (Player - POS) */}
                   <td className="py-3 px-3 align-top">
-                    <span className="font-medium opacity-75">
-                      -{droppedFormatted}
-                    </span>
+                    <div
+                      className="inline-flex items-center gap-1.5 font-medium opacity-85"
+                      style={{ color: "var(--nav-text, var(--vfsn-text))" }}
+                    >
+                      <DroppedArrowIcon />
+                      <span>{droppedFormatted}</span>
+                    </div>
                   </td>
 
                   {/* 4. Transaction Type */}
@@ -123,20 +172,12 @@ export default function TransactionsWire({
                     <span
                       className="inline-block px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider border border-[var(--vfsn-border)]"
                       style={{
-                        backgroundColor: "var(--vfsn-surface)",
-                        color: "var(--vfsn-accent-2)",
+                        backgroundColor: "rgba(0, 0, 0, 0.25)",
+                        color: "var(--nav-text, var(--vfsn-accent-2))",
                       }}
                     >
                       {tx.transactionType ?? "MOVE"}
                     </span>
-                    {tx.bidAmount && tx.bidAmount > 0 ? (
-                      <div
-                        className="text-[10px] font-black mt-0.5 tabular-nums"
-                        style={{ color: "var(--vfsn-accent-1)" }}
-                      >
-                        FAAB ${tx.bidAmount}
-                      </div>
-                    ) : null}
                   </td>
                 </tr>
               );

@@ -26,15 +26,18 @@ export default function WeeklyProps({ propsList }: WeeklyPropsProps) {
 
   return (
     <section
-      className="w-full rounded-[12px] border border-[var(--vfsn-border)] p-6 shadow-[0_4px_20px_rgba(0,0,0,0.25)] flex flex-col gap-4"
-      style={{ backgroundColor: "var(--vfsn-surface)" }}
+      className="w-full rounded-[12px] border border-[var(--vfsn-border)] p-6 shadow-[0_4px_20px_rgba(0,0,0,0.25)] flex flex-col gap-4 transition-colors duration-300"
+      style={{
+        backgroundColor: "var(--nav-background, var(--vfsn-surface))",
+        color: "var(--nav-text, var(--vfsn-text))",
+      }}
     >
       {/* Card Header */}
       <div className="flex items-center justify-between pb-3 border-b border-[var(--vfsn-border)]">
         <div>
           <span
             className="text-[10px] font-extrabold uppercase tracking-[0.16em] block"
-            style={{ color: "var(--vfsn-accent-1)" }}
+            style={{ color: "var(--nav-highlight, var(--vfsn-accent-1))" }}
           >
             Broadcast Honors • 9 Weekly Awards
           </span>
@@ -51,8 +54,8 @@ export default function WeeklyProps({ propsList }: WeeklyPropsProps) {
             <tr
               className="border-b border-[var(--vfsn-border)] text-[10px] font-extrabold uppercase tracking-[0.14em]"
               style={{
-                backgroundColor: "var(--vfsn-surface)",
-                color: "var(--vfsn-accent-1)",
+                backgroundColor: "rgba(0, 0, 0, 0.3)",
+                color: "var(--nav-text, var(--vfsn-text))",
               }}
             >
               <th className="py-3 px-3.5">Award</th>
@@ -68,8 +71,8 @@ export default function WeeklyProps({ propsList }: WeeklyPropsProps) {
               return (
                 <tr
                   key={awardKey}
-                  className="transition-colors hover:bg-white/[0.02]"
-                  style={{ backgroundColor: "var(--vfsn-bg)" }}
+                  className="transition-colors hover:bg-white/[0.04]"
+                  style={{ backgroundColor: "rgba(0, 0, 0, 0.15)" }}
                 >
                   {/* Award + Info Tooltip Trigger */}
                   <td className="py-3 px-3.5 align-top">
@@ -90,11 +93,11 @@ export default function WeeklyProps({ propsList }: WeeklyPropsProps) {
                             className="w-4 h-4 rounded-full border border-[var(--vfsn-border)] inline-flex items-center justify-center text-[10px] font-black transition-colors cursor-pointer"
                             style={{
                               backgroundColor: isTooltipOpen
-                                ? "var(--vfsn-accent-1)"
-                                : "var(--vfsn-surface)",
+                                ? "var(--nav-highlight, var(--vfsn-accent-1))"
+                                : "rgba(0, 0, 0, 0.25)",
                               color: isTooltipOpen
-                                ? "var(--vfsn-bg)"
-                                : "var(--vfsn-accent-1)",
+                                ? "var(--nav-background, #0A0A0C)"
+                                : "var(--nav-text, var(--vfsn-text))",
                             }}
                           >
                             i
@@ -108,13 +111,13 @@ export default function WeeklyProps({ propsList }: WeeklyPropsProps) {
                                 : "opacity-0 group-hover:opacity-100"
                             }`}
                             style={{
-                              backgroundColor: "var(--vfsn-surface)",
-                              color: "var(--vfsn-text)",
+                              backgroundColor: "var(--nav-background, var(--vfsn-surface))",
+                              color: "var(--nav-text, var(--vfsn-text))",
                             }}
                           >
                             <span
                               className="block text-[9px] font-extrabold uppercase tracking-wider mb-0.5"
-                              style={{ color: "var(--vfsn-accent-1)" }}
+                              style={{ color: "var(--nav-highlight, var(--vfsn-accent-1))" }}
                             >
                               {row.award}
                             </span>
@@ -125,8 +128,8 @@ export default function WeeklyProps({ propsList }: WeeklyPropsProps) {
 
                       {isTooltipOpen && (
                         <span
-                          className="text-[10px] font-semibold opacity-75"
-                          style={{ color: "var(--vfsn-accent-1)" }}
+                          className="text-[10px] font-semibold opacity-85"
+                          style={{ color: "var(--nav-highlight, var(--vfsn-accent-1))" }}
                         >
                           {row.definition}
                         </span>
@@ -139,17 +142,19 @@ export default function WeeklyProps({ propsList }: WeeklyPropsProps) {
                     <div className="font-bold leading-tight">
                       {row.playerName ? (
                         <>
-                          <span style={{ color: "var(--vfsn-accent-1)" }}>
+                          <span style={{ color: "var(--nav-highlight, var(--vfsn-accent-1))" }}>
                             {row.playerName}
                           </span>
-                          <span className="block text-[11px] opacity-75 font-semibold">
+                          <span className="block text-[11px] opacity-80 font-semibold">
                             {row.teamName} ({row.managerName})
                           </span>
                         </>
                       ) : (
                         <>
-                          <span>{row.teamName}</span>
-                          <span className="block text-[11px] opacity-60 font-semibold">
+                          <span style={{ color: "var(--nav-highlight, var(--vfsn-accent-1))" }}>
+                            {row.teamName}
+                          </span>
+                          <span className="block text-[11px] opacity-75 font-semibold">
                             {row.managerName}
                           </span>
                         </>
@@ -161,12 +166,12 @@ export default function WeeklyProps({ propsList }: WeeklyPropsProps) {
                   <td className="py-3 px-3.5 align-top text-right tabular-nums">
                     <div
                       className="font-black text-xs"
-                      style={{ color: "var(--vfsn-accent-1)" }}
+                      style={{ color: "var(--nav-highlight, var(--vfsn-accent-1))" }}
                     >
                       {formatAwardValue(row.award, row.value)}
                     </div>
                     {row.supplemental && (
-                      <div className="text-[10px] font-semibold opacity-55">
+                      <div className="text-[10px] font-semibold opacity-70">
                         {row.supplemental}
                       </div>
                     )}

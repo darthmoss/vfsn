@@ -1,28 +1,22 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 :root {
-  --vfsn-bg: #0b0f19;
-  --vfsn-surface: #172033;
-  --vfsn-border: rgba(255, 255, 255, 0.1);
-  --vfsn-text: #f8fafc;
+  --vfsn-bg: #0A0A0C;
+  --vfsn-surface: #0A0A0C;
+  --vfsn-border: rgba(255, 255, 255, 0.12);
+  --vfsn-text: #ffffff;
   --vfsn-accent-1: #FF1E27;
-  --vfsn-accent-2: #FFFFFF;
+  --vfsn-accent-2: #ffffff;
+  --nav-background: #0A0A0C;
+  --nav-highlight: #FF1E27;
+  --nav-text: #ffffff;
 }
 
-/* 1. Hard reset to obliterate ALL invisible browser defaults */
-*, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
-/* 2. Lock the html and body exactly to the viewport */
+/* Lock the html and body to the viewport with theme defaults */
 html, body {
   width: 100%;
-  height: 100%;
-  overflow-x: hidden;
+  min-height: 100vh;
+  overflow-x: clip;
   background-color: var(--vfsn-bg);
   color: var(--vfsn-text);
   transition: background-color 0.3s ease, color 0.3s ease;

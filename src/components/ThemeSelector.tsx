@@ -1,17 +1,73 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { nflThemes } from '@/lib/nflColors'; 
+import { useState, useEffect, useRef } from 'react';
+import { nflThemes, type TeamTheme } from '@/lib/nflColors'; 
 
-const VFSN_DEFAULT = { 
-  navBackground: { hex: '#0A0A0C' }, 
-  navHighlight: { hex: '#FF1E27' }, 
-  navText: { hex: '#ffffff' } 
+const VFSN_DEFAULT: TeamTheme = { 
+  navBackground: { name: 'VFSN Black', hex: '#0A0A0C' }, 
+  navHighlight: { name: 'VFSN Red', hex: '#FF1E27' }, 
+  navText: { name: 'White', hex: '#ffffff' } 
 };
+
+const TEAM_OPTIONS: { code: string; label: string }[] = [
+  { code: 'vfsn', label: 'VFSN Default' },
+  { code: 'ARI', label: 'Arizona Cardinals' },
+  { code: 'ATL', label: 'Atlanta Falcons' },
+  { code: 'BAL', label: 'Baltimore Ravens' },
+  { code: 'BUF', label: 'Buffalo Bills' },
+  { code: 'CAR', label: 'Carolina Panthers' },
+  { code: 'CHI', label: 'Chicago Bears' },
+  { code: 'CIN', label: 'Cincinnati Bengals' },
+  { code: 'CLE', label: 'Cleveland Browns' },
+  { code: 'DAL', label: 'Dallas Cowboys' },
+  { code: 'DEN', label: 'Denver Broncos' },
+  { code: 'DET', label: 'Detroit Lions' },
+  { code: 'GB', label: 'Green Bay Packers' },
+  { code: 'HOU', label: 'Houston Texans' },
+  { code: 'IND', label: 'Indianapolis Colts' },
+  { code: 'JAX', label: 'Jacksonville Jaguars' },
+  { code: 'KC', label: 'Kansas City Chiefs' },
+  { code: 'LV', label: 'Las Vegas Raiders' },
+  { code: 'LAC', label: 'Los Angeles Chargers' },
+  { code: 'LAR', label: 'Los Angeles Rams' },
+  { code: 'MIA', label: 'Miami Dolphins' },
+  { code: 'MIN', label: 'Minnesota Vikings' },
+  { code: 'NE', label: 'New England Patriots' },
+  { code: 'NO', label: 'New Orleans Saints' },
+  { code: 'NYG', label: 'New York Giants' },
+  { code: 'NYJ', label: 'New York Jets' },
+  { code: 'PHI', label: 'Philadelphia Eagles' },
+  { code: 'PIT', label: 'Pittsburgh Steelers' },
+  { code: 'SF', label: 'San Francisco 49ers' },
+  { code: 'SEA', label: 'Seattle Seahawks' },
+  { code: 'TB', label: 'Tampa Bay Buccaneers' },
+  { code: 'TEN', label: 'Tennessee Titans' },
+  { code: 'WAS', label: 'Washington Commanders' },
+];
+
+function getTeamTheme(code: string): TeamTheme {
+  if (code === 'vfsn') return VFSN_DEFAULT;
+  return nflThemes[code] || VFSN_DEFAULT;
+}
 
 export default function ThemeSelector() {
   const [selectedTeam, setSelectedTeam] = useState('vfsn');
   const [isDarkMode, setIsDarkMode] = useState(true);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target as Node)
+      ) {
+        setIsMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   useEffect(() => {
     if (isDarkMode) {
@@ -24,7 +80,7 @@ export default function ThemeSelector() {
   }, [isDarkMode]);
 
   useEffect(() => {
-    const colors = (nflThemes && (nflThemes as any)[selectedTeam]) || VFSN_DEFAULT;
+    const colors = getTeamTheme(selectedTeam);
     
     const backgroundStr = colors.navBackground?.hex || '#0A0A0C';
     const highlightStr = colors.navHighlight?.hex || '#FF1E27';
@@ -33,74 +89,89 @@ export default function ThemeSelector() {
     document.documentElement.style.setProperty('--nav-background', backgroundStr);
     document.documentElement.style.setProperty('--nav-highlight', highlightStr);
     document.documentElement.style.setProperty('--nav-text', textStr);
+
+    // Sync VFSN content card theme tokens with the selected NFL team
+    document.documentElement.style.setProperty('--vfsn-surface', backgroundStr);
+    document.documentElement.style.setProperty('--vfsn-accent-1', highlightStr);
+    document.documentElement.style.setProperty('--vfsn-accent-2', textStr);
   }, [selectedTeam]); 
 
-  const handleTeamChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedTeam(e.target.value);
-  };
+  const activeOption =
+    TEAM_OPTIONS.find((t) => t.code === selectedTeam) || TEAM_OPTIONS[0];
 
   return (
     <div className="w-full flex flex-col gap-3">
       
-      {/* 1. NFL TEAM SELECTOR */}
-      <div className="relative w-full group">
-        <select 
-          value={selectedTeam}
-          onChange={handleTeamChange}
-          className="w-full appearance-none [-webkit-appearance:none] outline-none border-none cursor-pointer transition-all duration-300 shadow-sm hover:shadow-md rounded-xl text-[0.95rem] font-bold focus:ring-2 focus:ring-white/20 py-[8px]"
+      {/* 1. CUSTOM NFL TEAM SELECTOR (Pop-up menu showing each team's own navBackground & navHighlight) */}
+      <div ref={dropdownRef} className="relative w-full">
+        <button
+          type="button"
+          aria-haspopup="listbox"
+          aria-expanded={isMenuOpen}
+          onClick={() => setIsMenuOpen((prev) => !prev)}
+          className="w-full outline-none border border-white/10 cursor-pointer transition-all duration-300 shadow-sm hover:shadow-md rounded-xl text-[0.9rem] font-bold focus:ring-2 focus:ring-white/20 py-[8px] px-3 flex items-center justify-between gap-2"
           style={{
             backgroundColor: "var(--nav-background, #0A0A0C)",
-            color: "var(--nav-text, #ffffff)",
-            paddingLeft: "40px",
-            paddingRight: "40px",
-            textAlignLast: "center"
+            color: "var(--nav-highlight, #FF1E27)",
           }}
         >
-          <option value="vfsn" className="bg-[#0A0A0C] text-white">VFSN Default</option>
-          <option value="ARI" className="bg-[#97233F] text-white">Arizona Cardinals</option>
-          <option value="ATL" className="bg-[#A71930] text-white">Atlanta Falcons</option>
-          <option value="BAL" className="bg-[#241773] text-white">Baltimore Ravens</option>
-          <option value="BUF" className="bg-[#00338D] text-white">Buffalo Bills</option>
-          <option value="CAR" className="bg-[#0085CA] text-white">Carolina Panthers</option>
-          <option value="CHI" className="bg-[#0B162A] text-white">Chicago Bears</option>
-          <option value="CIN" className="bg-[#FB4F14] text-white">Cincinnati Bengals</option>
-          <option value="CLE" className="bg-[#311D00] text-white">Cleveland Browns</option>
-          <option value="DAL" className="bg-[#041E42] text-white">Dallas Cowboys</option>
-          <option value="DEN" className="bg-[#FB4F14] text-white">Denver Broncos</option>
-          <option value="DET" className="bg-[#0076B6] text-white">Detroit Lions</option>
-          <option value="GB" className="bg-[#203731] text-white">Green Bay Packers</option>
-          <option value="HOU" className="bg-[#03202F] text-white">Houston Texans</option>
-          <option value="IND" className="bg-[#002C5F] text-white">Indianapolis Colts</option>
-          <option value="JAX" className="bg-[#006778] text-white">Jacksonville Jaguars</option>
-          <option value="KC" className="bg-[#E31837] text-white">Kansas City Chiefs</option>
-          <option value="LV" className="bg-[#000000] text-white">Las Vegas Raiders</option>
-          <option value="LAC" className="bg-[#0080C6] text-white">Los Angeles Chargers</option>
-          <option value="LAR" className="bg-[#003594] text-white">Los Angeles Rams</option>
-          <option value="MIA" className="bg-[#008E97] text-white">Miami Dolphins</option>
-          <option value="MIN" className="bg-[#4F2683] text-white">Minnesota Vikings</option>
-          <option value="NE" className="bg-[#002244] text-white">New England Patriots</option>
-          <option value="NO" className="bg-[#D3BC8D] text-[#0A0A0C]">New Orleans Saints</option>
-          <option value="NYG" className="bg-[#0B2265] text-white">New York Giants</option>
-          <option value="NYJ" className="bg-[#125740] text-white">New York Jets</option>
-          <option value="PHI" className="bg-[#004C54] text-white">Philadelphia Eagles</option>
-          <option value="PIT" className="bg-[#FFB612] text-[#0A0A0C]">Pittsburgh Steelers</option>
-          <option value="SF" className="bg-[#AA0000] text-white">San Francisco 49ers</option>
-          <option value="SEA" className="bg-[#002244] text-white">Seattle Seahawks</option>
-          <option value="TB" className="bg-[#D50A0A] text-white">Tampa Bay Buccaneers</option>
-          <option value="TEN" className="bg-[#0C2340] text-white">Tennessee Titans</option>
-          <option value="WAS" className="bg-[#5A1414] text-white">Washington Commanders</option>
-        </select>
-
-        <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none transition-transform duration-300 group-hover:translate-y-[2px]">
-          <svg className="w-[18px] h-[18px] opacity-80" style={{ color: "var(--nav-text, #ffffff)" }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <span className="w-[18px] shrink-0" />
+          <span className="truncate text-center flex-1">
+            {activeOption.label}
+          </span>
+          <svg
+            className={`w-[18px] h-[18px] shrink-0 opacity-80 transition-transform duration-200 ${
+              isMenuOpen ? 'rotate-180' : ''
+            }`}
+            style={{ color: "var(--nav-text, #ffffff)" }}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7"></path>
           </svg>
-        </div>
+        </button>
+
+        {isMenuOpen && (
+          <ul
+            role="listbox"
+            aria-label="Select NFL Team Theme"
+            className="z-50 absolute left-0 right-0 bottom-full mb-2 max-h-72 overflow-y-auto rounded-xl border border-white/15 p-1.5 shadow-[0_8px_30px_rgba(0,0,0,0.6)] flex flex-col gap-1 bg-[#0A0A0C]"
+          >
+            {TEAM_OPTIONS.map((team) => {
+              const theme = getTeamTheme(team.code);
+              const isSelected = team.code === selectedTeam;
+              return (
+                <li key={team.code} role="option" aria-selected={isSelected}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedTeam(team.code);
+                      setIsMenuOpen(false);
+                    }}
+                    className="w-full px-3 py-2 rounded-lg text-xs font-extrabold tracking-wide transition-transform duration-150 hover:scale-[1.01] cursor-pointer flex items-center justify-between gap-2 border"
+                    style={{
+                      backgroundColor: theme.navBackground.hex,
+                      color: theme.navHighlight.hex,
+                      borderColor: isSelected
+                        ? theme.navHighlight.hex
+                        : 'rgba(255,255,255,0.1)',
+                    }}
+                  >
+                    <span className="truncate text-center w-full">
+                      {team.label}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </div>
 
       {/* 2. DARK MODE TOGGLE */}
       <label 
-        className="w-full flex items-center justify-center rounded-xl py-[8px] px-4 shadow-sm transition-all duration-300 hover:shadow-md focus-within:ring-2 focus-within:ring-white/20 cursor-pointer"
+        className="w-full flex items-center justify-center rounded-xl py-[8px] px-4 shadow-sm transition-all duration-300 hover:shadow-md focus-within:ring-2 focus-within:ring-white/20 cursor-pointer border border-white/10"
         style={{
           backgroundColor: "var(--nav-background, #0A0A0C)",
           color: "var(--nav-text, #ffffff)"
