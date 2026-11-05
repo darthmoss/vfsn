@@ -58,7 +58,8 @@ else:
         print("Error: Please enter valid numbers.")
         sys.exit(1)
 
-load_dotenv(dotenv_path="../.env.local")
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+load_dotenv(dotenv_path=os.path.join(SCRIPT_DIR, "..", ".env.local"))
 
 league_ids = [
     int(os.getenv("ESPN_LEAGUE_ID_RED")),
@@ -71,6 +72,10 @@ db_url = os.getenv("DATABASE_URL")
 print(f"Connecting to Neon Postgres for the {year} season, Week {week}...")
 conn = psycopg2.connect(db_url)
 cursor = conn.cursor()
+
+# Load NFL team mappings once to safeguard foreign keys on vffl.players during live polling
+cursor.execute("SELECT abbrev, id FROM vffl.nfl;")
+nfl_map = {row[0]: row[1] for row in cursor.fetchall()}
 
 for league_id in league_ids:
     print(f"\nConnecting to ESPN League {league_id} for {year}...")
@@ -193,6 +198,19 @@ for league_id in league_ids:
                 continue
                 
             for player in lineup:
+                # Foreign Key Safeguard: Ensure mid-week pickups exist in vffl.players before inserting roster rows
+                nfl_id = nfl_map.get(getattr(player, 'proTeam', None))
+                cursor.execute("""
+                    INSERT INTO vffl.players (id, name, position, nfl_id)
+                    VALUES (%s, %s, %s, %s)
+                    ON CONFLICT (id) DO NOTHING;
+                """, (
+                    player.playerId,
+                    getattr(player, 'name', 'Unknown'),
+                    getattr(player, 'position', None),
+                    nfl_id
+                ))
+
                 # Level 2: Insert Player Lineups (vffl.matchup_rosters)
                 cursor.execute("""
                     INSERT INTO vffl.matchup_rosters (

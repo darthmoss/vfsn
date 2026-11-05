@@ -10,6 +10,8 @@ interface InjuryReportProps {
   injuries: InjuryReportData[];
 }
 
+const POSITION_ORDER = ["QB", "RB", "WR", "TE", "K", "D/ST"];
+
 interface ThemedFilterDropdownProps {
   id: string;
   label: string;
@@ -92,7 +94,7 @@ function ThemedFilterDropdown({
                       ? {
                           backgroundColor:
                             "var(--nav-highlight, var(--vfsn-accent-1))",
-                          color: "var(--nav-background, #0A0A0C)",
+                          color: "var(--nav-background, var(--vfsn-surface))",
                         }
                       : {
                           color: "var(--nav-text, var(--vfsn-text))",
@@ -112,11 +114,11 @@ function ThemedFilterDropdown({
 
 export default function InjuryReport({ injuries }: InjuryReportProps) {
   const [selectedNflTeam, setSelectedNflTeam] = useState<string>("All");
-  const [selectedPosition, setSelectedPosition] = useState<string>("All");
+  const [selectedPosition, setSelectedPosition] = useState<string>("QB");
   const [selectedStatus, setSelectedStatus] = useState<string>("All");
-  const [openDropdown, setOpenDropdown] = useState<
-    "team" | "pos" | "status" | null
-  >(null);
+  const [openDropdown, setOpenDropdown] = useState<"team" | "status" | null>(
+    null
+  );
 
   const filterContainerRef = useRef<HTMLDivElement>(null);
 
@@ -151,9 +153,20 @@ export default function InjuryReport({ injuries }: InjuryReportProps) {
           .map((item) => item.position)
           .filter((pos): pos is string => Boolean(pos))
       )
-    ).sort();
-    return ["All", ...unique];
+    ).sort((a, b) => {
+      const idxA = POSITION_ORDER.indexOf(a);
+      const idxB = POSITION_ORDER.indexOf(b);
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1;
+      if (idxB !== -1) return 1;
+      return a.localeCompare(b);
+    });
+    return unique.length > 0 ? unique : POSITION_ORDER;
   }, [injuries]);
+
+  const activePosition = positionOptions.includes(selectedPosition)
+    ? selectedPosition
+    : (positionOptions[0] ?? "QB");
 
   const statusOptions = useMemo(() => {
     const unique = Array.from(
@@ -167,16 +180,17 @@ export default function InjuryReport({ injuries }: InjuryReportProps) {
   }, [injuries]);
 
   const filteredInjuries = useMemo(() => {
-    return injuries.filter((player) => {
-      const matchesTeam =
-        selectedNflTeam === "All" || player.nflTeam === selectedNflTeam;
-      const matchesPos =
-        selectedPosition === "All" || player.position === selectedPosition;
-      const matchesStatus =
-        selectedStatus === "All" || player.injuryStatus === selectedStatus;
-      return matchesTeam && matchesPos && matchesStatus;
-    });
-  }, [injuries, selectedNflTeam, selectedPosition, selectedStatus]);
+    return injuries
+      .filter((player) => {
+        const matchesTeam =
+          selectedNflTeam === "All" || player.nflTeam === selectedNflTeam;
+        const matchesPos = player.position === activePosition;
+        const matchesStatus =
+          selectedStatus === "All" || player.injuryStatus === selectedStatus;
+        return matchesTeam && matchesPos && matchesStatus;
+      })
+      .sort((a, b) => a.playerName.localeCompare(b.playerName));
+  }, [injuries, selectedNflTeam, activePosition, selectedStatus]);
 
   return (
     <section
@@ -190,8 +204,8 @@ export default function InjuryReport({ injuries }: InjuryReportProps) {
         dangerouslySetInnerHTML={{
           __html: `
             .vfsn-dropdown-option:hover {
-              background-color: var(--nav-highlight, #FF1E27) !important;
-              color: var(--nav-background, #0A0A0C) !important;
+              background-color: var(--nav-highlight, var(--vfsn-accent-1)) !important;
+              color: var(--nav-background, var(--vfsn-surface)) !important;
             }
           `,
         }}
@@ -215,8 +229,8 @@ export default function InjuryReport({ injuries }: InjuryReportProps) {
         </span>
       </div>
 
-      {/* Three Custom-Themed Dropdown Filters: NFL Team, Position, Injury Status */}
-      <div ref={filterContainerRef} className="grid grid-cols-3 gap-2.5">
+      {/* Two Custom-Themed Dropdown Filters: NFL Team & Injury Status */}
+      <div ref={filterContainerRef} className="grid grid-cols-2 gap-2.5">
         <ThemedFilterDropdown
           id="filter-nfl-team"
           label="NFL Team"
@@ -228,21 +242,6 @@ export default function InjuryReport({ injuries }: InjuryReportProps) {
           }
           onSelect={(val) => {
             setSelectedNflTeam(val);
-            setOpenDropdown(null);
-          }}
-        />
-
-        <ThemedFilterDropdown
-          id="filter-position"
-          label="Position"
-          value={selectedPosition}
-          options={positionOptions}
-          isOpen={openDropdown === "pos"}
-          onToggle={() =>
-            setOpenDropdown(openDropdown === "pos" ? null : "pos")
-          }
-          onSelect={(val) => {
-            setSelectedPosition(val);
             setOpenDropdown(null);
           }}
         />
@@ -261,6 +260,41 @@ export default function InjuryReport({ injuries }: InjuryReportProps) {
             setOpenDropdown(null);
           }}
         />
+      </div>
+
+      {/* Single-Select Position Toggle Buttons */}
+      <div
+        role="radiogroup"
+        aria-label="Filter by Position"
+        className="flex flex-row items-center gap-1.5"
+      >
+        {positionOptions.map((pos) => {
+          const isActive = pos === activePosition;
+          return (
+            <button
+              key={pos}
+              type="button"
+              role="radio"
+              aria-checked={isActive}
+              onClick={() => setSelectedPosition(pos)}
+              className="flex-1 py-1.5 px-2 rounded-lg border border-[var(--vfsn-border)] text-xs font-extrabold uppercase tracking-wider cursor-pointer transition-colors text-center"
+              style={
+                isActive
+                  ? {
+                      backgroundColor:
+                        "var(--nav-highlight, var(--vfsn-accent-1))",
+                      color: "var(--nav-background, var(--vfsn-surface))",
+                    }
+                  : {
+                      backgroundColor: "rgba(0, 0, 0, 0.25)",
+                      color: "var(--nav-text, var(--vfsn-text))",
+                    }
+              }
+            >
+              {pos}
+            </button>
+          );
+        })}
       </div>
 
       {/* Player Designations List */}
@@ -292,7 +326,9 @@ export default function InjuryReport({ injuries }: InjuryReportProps) {
                 <div className="truncate">
                   <div
                     className="font-extrabold truncate"
-                    style={{ color: "var(--nav-highlight, var(--vfsn-accent-1))" }}
+                    style={{
+                      color: "var(--nav-highlight, var(--vfsn-accent-1))",
+                    }}
                   >
                     {player.playerName}
                   </div>
@@ -306,7 +342,7 @@ export default function InjuryReport({ injuries }: InjuryReportProps) {
                 className="px-2.5 py-1 rounded-md text-[10px] font-extrabold uppercase tracking-wider shrink-0"
                 style={{
                   backgroundColor: "var(--nav-highlight, var(--vfsn-accent-1))",
-                  color: "var(--nav-background, #0A0A0C)",
+                  color: "var(--nav-background, var(--vfsn-surface))",
                 }}
               >
                 {player.injuryStatus}

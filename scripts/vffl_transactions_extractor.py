@@ -40,7 +40,8 @@ else:
         print("Error: Please enter a valid 4-digit year.")
         sys.exit(1)
 
-load_dotenv(dotenv_path="../.env.local")
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+load_dotenv(dotenv_path=os.path.join(SCRIPT_DIR, "..", ".env.local"))
 db_url = os.getenv("DATABASE_URL")
 league_ids = [int(os.getenv("ESPN_LEAGUE_ID_RED")), int(os.getenv("ESPN_LEAGUE_ID_BLACK"))]
 espn_s2 = os.getenv("ESPN_S2")
@@ -49,6 +50,10 @@ swid = os.getenv("ESPN_SWID")
 print("Connecting to Neon Postgres...")
 conn = psycopg2.connect(db_url)
 cursor = conn.cursor()
+
+# Load NFL team mappings once to safeguard foreign keys on vffl.players
+cursor.execute("SELECT abbrev, id FROM vffl.nfl;")
+nfl_map = {row[0]: row[1] for row in cursor.fetchall()}
 
 for lid in league_ids:
     print(f"\nExtracting transactions for League {lid}...")
@@ -90,6 +95,19 @@ for lid in league_ids:
             manager_id = team_to_manager.get(team.team_id)
             if not manager_id:
                 continue
+            
+            # Foreign Key Safeguard: Ensure player exists in vffl.players before inserting transaction
+            nfl_id = nfl_map.get(getattr(player, 'proTeam', None))
+            cursor.execute("""
+                INSERT INTO vffl.players (id, name, position, nfl_id)
+                VALUES (%s, %s, %s, %s)
+                ON CONFLICT (id) DO NOTHING;
+            """, (
+                player.playerId,
+                getattr(player, 'name', 'Unknown'),
+                getattr(player, 'position', None),
+                nfl_id
+            ))
             
             cursor.execute("""
                 SELECT id FROM vffl.transactions 

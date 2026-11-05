@@ -11,4 +11,4 @@ FROM
     JOIN vffl.players p ON wps.player_id = p.id
     LEFT JOIN vffl.nfl n ON p.nfl_id = n.id
 WHERE
-    wps.is_injured = true;
+    wps.injury_status NOT IN ('NORMAL', 'ACTIVE');

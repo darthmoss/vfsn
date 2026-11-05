@@ -1,17 +1,19 @@
 import os
+import sys
+import datetime
 import psycopg2
 from espn_api.football import League
 from dotenv import load_dotenv
 
 # Load credentials from the root Next.js environment file
-load_dotenv(dotenv_path="../.env.local")
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+load_dotenv(dotenv_path=os.path.join(SCRIPT_DIR, "..", ".env.local"))
 
 # Load both league IDs
 league_ids = [
     int(os.getenv("ESPN_LEAGUE_ID_RED")),
     int(os.getenv("ESPN_LEAGUE_ID_BLACK"))
 ]
-year = 2026
 espn_s2 = os.getenv("ESPN_S2")
 swid = os.getenv("ESPN_SWID")
 db_url = os.getenv("DATABASE_URL")
@@ -19,6 +21,25 @@ db_url = os.getenv("DATABASE_URL")
 print("Connecting to Neon Postgres...")
 conn = psycopg2.connect(db_url)
 cursor = conn.cursor()
+
+# Resolve target season year dynamically via CLI argument, database fallback, or current year
+if len(sys.argv) > 1:
+    try:
+        year = int(sys.argv[1])
+    except ValueError:
+        print("Error: The year provided must be a valid number.")
+        sys.exit(1)
+else:
+    cursor.execute("""
+        SELECT season_year
+        FROM vffl.leagues
+        ORDER BY season_year DESC, current_week DESC
+        LIMIT 1;
+    """)
+    row = cursor.fetchone()
+    year = int(row[0]) if row else datetime.datetime.now().year
+
+print(f"Syncing VFFL league settings for the {year} season...")
 
 # Loop through both leagues
 for league_id in league_ids:
@@ -33,7 +54,7 @@ for league_id in league_ids:
     result = cursor.fetchone()
 
     if result:
-        print(f"League {league.settings.name} exists. Updating current week...")
+        print(f"League {league.settings.name} exists. Updating current week to {league.current_week}...")
         cursor.execute("""
             UPDATE vffl.leagues 
             SET current_week = %s 
