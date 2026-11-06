@@ -1,5 +1,5 @@
 WITH
-    team_stats AS (
+    raw_team_stats AS (
         SELECT
             m_1.season_year,
             m_1.week,
@@ -21,7 +21,8 @@ WITH
             AND m_1.season_year = dpr.season_year
             AND m_1.week = dpr.week
         WHERE
-            m_1.home_score IS NOT NULL
+            (m_1.home_score IS NOT NULL OR m_1.home_projected IS NOT NULL)
+            AND m_1.home_manager_id IS NOT NULL
         UNION ALL
         SELECT
             m_1.season_year,
@@ -44,7 +45,20 @@ WITH
             AND m_1.season_year = dpr.season_year
             AND m_1.week = dpr.week
         WHERE
-            m_1.away_score IS NOT NULL
+            (m_1.away_score IS NOT NULL OR m_1.away_projected IS NOT NULL)
+            AND m_1.away_manager_id IS NOT NULL
+    ),
+    team_stats AS (
+        SELECT
+            raw_team_stats.*,
+            max(COALESCE(raw_team_stats.actual_fpts, 0::real)) OVER (
+                PARTITION BY
+                    raw_team_stats.league_id,
+                    raw_team_stats.season_year,
+                    raw_team_stats.week
+            ) > 0::real AS has_actual_points
+        FROM
+            raw_team_stats
     ),
     team_awards AS (
         SELECT
@@ -58,13 +72,20 @@ WITH
             team_stats.margin,
             team_stats.is_winner,
             team_stats.wk_opt_fpts,
+            team_stats.has_actual_points,
             row_number() OVER (
                 PARTITION BY
                     team_stats.league_id,
                     team_stats.season_year,
                     team_stats.week
                 ORDER BY
-                    team_stats.actual_fpts DESC
+                    (
+                        CASE
+                            WHEN team_stats.has_actual_points THEN COALESCE(team_stats.actual_fpts, 0::real)
+                            ELSE COALESCE(team_stats.proj_fpts, 0::real)
+                        END
+                    ) DESC,
+                    COALESCE(team_stats.proj_fpts, 0::real) DESC
             ) AS rn_head_of_table,
             row_number() OVER (
                 PARTITION BY
@@ -72,7 +93,7 @@ WITH
                     team_stats.season_year,
                     team_stats.week
                 ORDER BY
-                    (team_stats.actual_fpts - team_stats.proj_fpts) DESC
+                    (team_stats.actual_fpts - team_stats.proj_fpts) DESC NULLS LAST
             ) AS rn_overachiever,
             row_number() OVER (
                 PARTITION BY
@@ -80,7 +101,7 @@ WITH
                     team_stats.season_year,
                     team_stats.week
                 ORDER BY
-                    team_stats.margin DESC
+                    team_stats.margin DESC NULLS LAST
             ) AS rn_body_bag,
             row_number() OVER (
                 PARTITION BY
@@ -90,8 +111,8 @@ WITH
                 ORDER BY
                     (
                         CASE
-                            WHEN team_stats.is_winner = 0 THEN team_stats.actual_fpts
-                            ELSE '-999'
+                            WHEN team_stats.is_winner = 0 AND team_stats.actual_fpts IS NOT NULL THEN team_stats.actual_fpts
+                            ELSE '-999'::real
                         END
                     ) DESC
             ) AS rn_tough_luck,
@@ -103,8 +124,8 @@ WITH
                 ORDER BY
                     (
                         CASE
-                            WHEN team_stats.is_winner = 1 THEN team_stats.margin
-                            ELSE 999
+                            WHEN team_stats.is_winner = 1 AND team_stats.margin IS NOT NULL THEN team_stats.margin
+                            ELSE 999::real
                         END
                     )
             ) AS rn_heartbreak_kid,
@@ -116,8 +137,8 @@ WITH
                 ORDER BY
                     (
                         CASE
-                            WHEN team_stats.is_winner = 1 THEN team_stats.actual_fpts
-                            ELSE 999
+                            WHEN team_stats.is_winner = 1 AND team_stats.actual_fpts IS NOT NULL THEN team_stats.actual_fpts
+                            ELSE 999::real
                         END
                     )
             ) AS rn_any_given_sunday,
@@ -129,12 +150,12 @@ WITH
                 ORDER BY
                     (
                         team_stats.actual_fpts / NULLIF(team_stats.wk_opt_fpts, 0)
-                    ) DESC
+                    ) DESC NULLS LAST
             ) AS rn_armchair_architect
         FROM
             team_stats
     ),
-    player_stats AS (
+    raw_player_stats AS (
         SELECT
             m_1.season_year,
             m_1.week,
@@ -144,32 +165,66 @@ WITH
             mr.slot_position,
             mr.actual_fpts,
             mr.proj_fpts,
-            row_number() OVER (
+            max(COALESCE(mr.actual_fpts, 0::real)) OVER (
                 PARTITION BY
                     m_1.league_id,
                     m_1.season_year,
                     m_1.week
-                ORDER BY
-                    mr.actual_fpts DESC
-            ) AS rn_goat,
-            row_number() OVER (
+            ) > 0::real AS has_actual_points,
+            max(
+                CASE
+                    WHEN mr.slot_position = 'D/ST' THEN COALESCE(mr.actual_fpts, 0::real)
+                    ELSE 0::real
+                END
+            ) OVER (
                 PARTITION BY
                     m_1.league_id,
                     m_1.season_year,
                     m_1.week
-                ORDER BY
-                    (
-                        CASE
-                            WHEN mr.slot_position = 'D/ST' THEN mr.actual_fpts
-                            ELSE '-999'
-                        END
-                    ) DESC
-            ) AS rn_defense
+            ) > 0::real AS has_def_actual_points
         FROM
             vffl.matchup_rosters mr
             JOIN vffl.matchups m_1 ON mr.matchup_id = m_1.id
         WHERE
-            mr.slot_position NOT IN ('Bench', 'IR')
+            mr.slot_position NOT IN ('BE', 'Bench', 'IR', '20', '21')
+    ),
+    player_stats AS (
+        SELECT
+            raw_player_stats.*,
+            row_number() OVER (
+                PARTITION BY
+                    raw_player_stats.league_id,
+                    raw_player_stats.season_year,
+                    raw_player_stats.week
+                ORDER BY
+                    (
+                        CASE
+                            WHEN raw_player_stats.has_actual_points THEN COALESCE(raw_player_stats.actual_fpts, 0::real)
+                            ELSE COALESCE(raw_player_stats.proj_fpts, 0::real)
+                        END
+                    ) DESC,
+                    COALESCE(raw_player_stats.proj_fpts, 0::real) DESC
+            ) AS rn_goat,
+            row_number() OVER (
+                PARTITION BY
+                    raw_player_stats.league_id,
+                    raw_player_stats.season_year,
+                    raw_player_stats.week
+                ORDER BY
+                    (
+                        CASE
+                            WHEN raw_player_stats.slot_position = 'D/ST' THEN
+                                CASE
+                                    WHEN raw_player_stats.has_def_actual_points THEN COALESCE(raw_player_stats.actual_fpts, '-999'::real)
+                                    ELSE COALESCE(raw_player_stats.proj_fpts, '-999'::real)
+                                END
+                            ELSE '-999'::real
+                        END
+                    ) DESC,
+                    COALESCE(raw_player_stats.proj_fpts, 0::real) DESC
+            ) AS rn_defense
+        FROM
+            raw_player_stats
     ),
     award_winners AS (
         SELECT
@@ -180,8 +235,14 @@ WITH
             'Highest Scoring Team' AS definition,
             team_awards.manager_id,
             NULL::integer AS player_id,
-            team_awards.actual_fpts AS value,
-            team_awards.proj_fpts::character varying AS supplemental
+            CASE
+                WHEN team_awards.has_actual_points THEN team_awards.actual_fpts
+                ELSE team_awards.proj_fpts
+            END AS value,
+            CASE
+                WHEN team_awards.has_actual_points THEN team_awards.proj_fpts::character varying
+                ELSE 'Projected'::character varying
+            END AS supplemental
         FROM
             team_awards
         WHERE
@@ -193,10 +254,19 @@ WITH
             team_awards.week,
             'Overachiever',
             'Highest Margin to Projection',
-            team_awards.manager_id,
+            CASE
+                WHEN team_awards.has_actual_points THEN team_awards.manager_id
+                ELSE NULL::integer
+            END AS manager_id,
             NULL::integer,
-            team_awards.actual_fpts - team_awards.proj_fpts,
-            (team_awards.actual_fpts || ' - ') || team_awards.proj_fpts
+            CASE
+                WHEN team_awards.has_actual_points THEN team_awards.actual_fpts - team_awards.proj_fpts
+                ELSE NULL::real
+            END AS value,
+            CASE
+                WHEN team_awards.has_actual_points THEN (team_awards.actual_fpts || ' - ') || team_awards.proj_fpts
+                ELSE NULL::character varying
+            END AS supplemental
         FROM
             team_awards
         WHERE
@@ -208,10 +278,19 @@ WITH
             team_awards.week,
             'Body Bag',
             'Highest Margin of Victory',
-            team_awards.manager_id,
+            CASE
+                WHEN team_awards.has_actual_points THEN team_awards.manager_id
+                ELSE NULL::integer
+            END AS manager_id,
             NULL::integer,
-            team_awards.margin,
-            (team_awards.actual_fpts || ' - ') || team_awards.opp_fpts
+            CASE
+                WHEN team_awards.has_actual_points THEN team_awards.margin
+                ELSE NULL::real
+            END AS value,
+            CASE
+                WHEN team_awards.has_actual_points THEN (team_awards.actual_fpts || ' - ') || team_awards.opp_fpts
+                ELSE NULL::character varying
+            END AS supplemental
         FROM
             team_awards
         WHERE
@@ -223,10 +302,19 @@ WITH
             team_awards.week,
             'Tough Luck',
             'Highest Score for a Losing Team',
-            team_awards.manager_id,
+            CASE
+                WHEN team_awards.has_actual_points THEN team_awards.manager_id
+                ELSE NULL::integer
+            END AS manager_id,
             NULL::integer,
-            team_awards.actual_fpts,
-            team_awards.proj_fpts::character varying AS proj_fpts
+            CASE
+                WHEN team_awards.has_actual_points THEN team_awards.actual_fpts
+                ELSE NULL::real
+            END AS value,
+            CASE
+                WHEN team_awards.has_actual_points THEN team_awards.proj_fpts::character varying
+                ELSE NULL::character varying
+            END AS proj_fpts
         FROM
             team_awards
         WHERE
@@ -238,10 +326,19 @@ WITH
             team_awards.week,
             'Heartbreak Kid',
             'Lowest Margin of Victory',
-            team_awards.manager_id,
+            CASE
+                WHEN team_awards.has_actual_points THEN team_awards.manager_id
+                ELSE NULL::integer
+            END AS manager_id,
             NULL::integer,
-            team_awards.margin,
-            (team_awards.actual_fpts || ' - ') || team_awards.opp_fpts
+            CASE
+                WHEN team_awards.has_actual_points THEN team_awards.margin
+                ELSE NULL::real
+            END AS value,
+            CASE
+                WHEN team_awards.has_actual_points THEN (team_awards.actual_fpts || ' - ') || team_awards.opp_fpts
+                ELSE NULL::character varying
+            END AS supplemental
         FROM
             team_awards
         WHERE
@@ -253,10 +350,19 @@ WITH
             team_awards.week,
             'Any Given Sunday',
             'Lowest Score for a Winning Team',
-            team_awards.manager_id,
+            CASE
+                WHEN team_awards.has_actual_points THEN team_awards.manager_id
+                ELSE NULL::integer
+            END AS manager_id,
             NULL::integer,
-            team_awards.actual_fpts,
-            team_awards.proj_fpts::character varying AS proj_fpts
+            CASE
+                WHEN team_awards.has_actual_points THEN team_awards.actual_fpts
+                ELSE NULL::real
+            END AS value,
+            CASE
+                WHEN team_awards.has_actual_points THEN team_awards.proj_fpts::character varying
+                ELSE NULL::character varying
+            END AS proj_fpts
         FROM
             team_awards
         WHERE
@@ -268,15 +374,24 @@ WITH
             team_awards.week,
             'Armchair Architect',
             'Most Efficient Lineup',
-            team_awards.manager_id,
+            CASE
+                WHEN team_awards.has_actual_points AND COALESCE(team_awards.wk_opt_fpts, 0::real) > 0::real THEN team_awards.manager_id
+                ELSE NULL::integer
+            END AS manager_id,
             NULL::integer,
-            round(
-                (
-                    team_awards.actual_fpts / NULLIF(team_awards.wk_opt_fpts, 0)
-                )::numeric,
-                3
-            )::real AS round,
-            (team_awards.actual_fpts || ' / ') || team_awards.wk_opt_fpts
+            CASE
+                WHEN team_awards.has_actual_points AND COALESCE(team_awards.wk_opt_fpts, 0::real) > 0::real THEN round(
+                    (
+                        team_awards.actual_fpts / NULLIF(team_awards.wk_opt_fpts, 0)
+                    )::numeric,
+                    3
+                )::real
+                ELSE NULL::real
+            END AS round,
+            CASE
+                WHEN team_awards.has_actual_points AND COALESCE(team_awards.wk_opt_fpts, 0::real) > 0::real THEN (team_awards.actual_fpts || ' / ') || team_awards.wk_opt_fpts
+                ELSE NULL::character varying
+            END AS supplemental
         FROM
             team_awards
         WHERE
@@ -290,8 +405,14 @@ WITH
             'Highest Scoring Player',
             player_stats.manager_id,
             player_stats.player_id,
-            player_stats.actual_fpts,
-            player_stats.proj_fpts::character varying AS proj_fpts
+            CASE
+                WHEN player_stats.has_actual_points THEN player_stats.actual_fpts
+                ELSE player_stats.proj_fpts
+            END AS value,
+            CASE
+                WHEN player_stats.has_actual_points THEN player_stats.proj_fpts::character varying
+                ELSE 'Projected'::character varying
+            END AS proj_fpts
         FROM
             player_stats
         WHERE
@@ -305,8 +426,14 @@ WITH
             'Highest Scoring Defense',
             player_stats.manager_id,
             player_stats.player_id,
-            player_stats.actual_fpts,
-            player_stats.proj_fpts::character varying AS proj_fpts
+            CASE
+                WHEN player_stats.has_def_actual_points THEN player_stats.actual_fpts
+                ELSE player_stats.proj_fpts
+            END AS value,
+            CASE
+                WHEN player_stats.has_def_actual_points THEN player_stats.proj_fpts::character varying
+                ELSE 'Projected'::character varying
+            END AS proj_fpts
         FROM
             player_stats
         WHERE
@@ -316,8 +443,11 @@ SELECT
     aw.season_year,
     aw.week,
     l.name AS league_name,
-    (m.first_name || ' ') || "left" (m.last_name, 1) AS manager_name,
-    t.team_name,
+    CASE
+        WHEN m.id IS NOT NULL THEN (m.first_name || ' ') || "left" (m.last_name, 1)
+        ELSE NULL::text
+    END AS manager_name,
+    COALESCE(t.team_name, 'TBD'::character varying(255))::character varying(255) AS team_name,
     p.name AS player_name,
     aw.award,
     aw.definition,
@@ -327,8 +457,8 @@ FROM
     award_winners aw
     JOIN vffl.leagues l ON aw.league_id = l.league_id
     AND aw.season_year = l.season_year
-    JOIN vffl.managers m ON aw.manager_id = m.id
-    JOIN vffl.teams t ON aw.manager_id = t.manager_id
+    LEFT JOIN vffl.managers m ON aw.manager_id = m.id
+    LEFT JOIN vffl.teams t ON aw.manager_id = t.manager_id
     AND aw.league_id = t.league_id
     AND aw.season_year = t.season_year
     LEFT JOIN vffl.players p ON aw.player_id = p.id;

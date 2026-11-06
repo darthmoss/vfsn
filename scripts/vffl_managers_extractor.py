@@ -20,16 +20,30 @@ else:
         sys.exit(1)
 
 # Load credentials from the root Next.js environment file
-load_dotenv(dotenv_path="../.env.local")
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+load_dotenv(dotenv_path=os.path.join(SCRIPT_DIR, "..", ".env.local"))
 
-league_ids = [
-    int(os.getenv("ESPN_LEAGUE_ID_RED")),
-    int(os.getenv("ESPN_LEAGUE_ID_BLACK"))
-]
+red_league_id = int(os.getenv("ESPN_LEAGUE_ID_RED"))
+black_league_id = int(os.getenv("ESPN_LEAGUE_ID_BLACK"))
+league_ids = [red_league_id, black_league_id]
 
 espn_s2 = os.getenv("ESPN_S2")
 swid = os.getenv("ESPN_SWID")
 db_url = os.getenv("DATABASE_URL")
+
+# Historical commissioner co-owner overrides:
+# (season_year, league_id, espn_team_id) -> actual manager identity
+HISTORICAL_OWNER_OVERRIDES = {
+    # 2024 Red Division Team 8 (RandyMossman): Commissioner (Matt Mossman) was added mid-season,
+    # but the franchise belonged to Colin Glore.
+    (2024, red_league_id, 8): {
+        "id": "{3A3FC251-97C0-426E-BFC2-5197C0126E02}",
+        "firstName": "Colin",
+        "lastName": "Glore",
+        "displayName": "cglore7",
+        "primaryOwner": True,
+    }
+}
 
 print(f"Connecting to Neon Postgres for the {year} season...")
 conn = psycopg2.connect(db_url)
@@ -44,8 +58,14 @@ for league_id in league_ids:
         continue
     
     for team in league.teams:
-        # Extract the detailed owner JSON object
-        if team.owners:
+        override = HISTORICAL_OWNER_OVERRIDES.get((year, league_id, team.team_id))
+        if override:
+            espn_owner_id = override["id"]
+            first_name = override["firstName"]
+            last_name = override["lastName"]
+            display_name = override["displayName"]
+            primary_owner = override["primaryOwner"]
+        elif team.owners:
             owner = team.owners[0]
             if isinstance(owner, dict):
                 espn_owner_id = owner.get('id', f"UNKNOWN_{team.team_id}")
@@ -96,9 +116,9 @@ for league_id in league_ids:
         if team_result:
             cursor.execute("""
                 UPDATE vffl.teams 
-                SET team_name = %s, team_abbrev = %s, logo_url = %s 
+                SET manager_id = %s, team_name = %s, team_abbrev = %s, logo_url = %s 
                 WHERE id = %s;
-            """, (team.team_name, team.team_abbrev, team.logo_url, team_result[0]))
+            """, (manager_id, team.team_name, team.team_abbrev, team.logo_url, team_result[0]))
         else:
             cursor.execute("""
                 INSERT INTO vffl.teams (
