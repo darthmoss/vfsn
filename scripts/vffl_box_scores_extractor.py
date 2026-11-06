@@ -215,14 +215,43 @@ for league_id in league_ids:
                 cursor.execute("""
                     INSERT INTO vffl.matchup_rosters (
                         matchup_id, manager_id, player_id, slot_position, proj_fpts, actual_fpts
-                    ) VALUES (%s, %s, %s, %s, %s, %s);
+                    ) VALUES (%s, %s, %s, %s, %s, %s) RETURNING id;
                 """, (
                     matchup_id, manager_id, player.playerId, player.slot_position,
                     player.projected_points, player.points
                 ))
+                roster_id = cursor.fetchone()[0]
 
-# Level 3: Internal Stat Population
-print("\nPopulating matchup player stats internally from the global pool...")
+                # Level 2.5: Populate Granular Player Stats Directly from BoxPlayer Breakdown
+                player_stats_dict = getattr(player, 'stats', {}) or {}
+                stat_key = f"00{year}{week}"
+                week_stats = None
+                if week in player_stats_dict:
+                    week_stats = player_stats_dict[week]
+                elif stat_key in player_stats_dict:
+                    week_stats = player_stats_dict[stat_key]
+
+                if isinstance(week_stats, dict):
+                    breakdown = week_stats.get('breakdown', {})
+                    if isinstance(breakdown, dict) and breakdown:
+                        raw_points = week_stats.get('points')
+                        if isinstance(raw_points, dict):
+                            points_breakdown = raw_points
+                        else:
+                            points_breakdown = week_stats.get('points_breakdown', {})
+                            if not isinstance(points_breakdown, dict):
+                                points_breakdown = {}
+
+                        for stat_id, stat_value in breakdown.items():
+                            stat_points = points_breakdown.get(stat_id, 0.0)
+                            cursor.execute("""
+                                INSERT INTO vffl.matchup_player_stats (
+                                    roster_id, stat_id, stat_value, stat_points
+                                ) VALUES (%s, %s, %s, %s);
+                            """, (roster_id, str(stat_id), stat_value, stat_points))
+
+# Level 3: Internal Stat Population Fallback (for edge cases where BoxPlayer breakdown is absent)
+print("\nBackfilling any missing matchup player stats from the global pool...")
 cursor.execute("""
     INSERT INTO vffl.matchup_player_stats (roster_id, stat_id, stat_value, stat_points)
     SELECT 
@@ -236,7 +265,11 @@ cursor.execute("""
         ON r.player_id = ps.player_id 
         AND m.season_year = ps.season_year 
         AND m.week = ps.week
-    WHERE m.season_year = %s AND m.week = %s;
+    WHERE m.season_year = %s AND m.week = %s
+      AND NOT EXISTS (
+          SELECT 1 FROM vffl.matchup_player_stats mps
+          WHERE mps.roster_id = r.id
+      );
 """, (year, week))
 
 conn.commit()

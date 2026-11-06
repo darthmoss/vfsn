@@ -505,6 +505,7 @@ export const vfflVwInjuryReport = vffl.view("vw_injury_report", {
 
 // The H2H Matchups View
 export const vfflVwMatchups = vffl.view("vw_matchups", {
+  matchupId: integer("matchup_id"),
   leagueName: varchar("league_name", { length: 50 }),
   seasonYear: integer("season_year"),
   week: integer("week"),
@@ -521,6 +522,33 @@ export const vfflVwMatchups = vffl.view("vw_matchups", {
   awayStanding: integer("away_standing"),
   awayProjected: real("away_projected"),
   awayScore: real("away_score"),
+}).existing();
+
+// The Matchup Rosters & Box Score Stats View
+export const vfflVwMatchupRosters = vffl.view("vw_matchup_rosters", {
+  matchupId: integer("matchup_id"),
+  managerId: integer("manager_id"),
+  slot: varchar("slot", { length: 10 }),
+  playerName: varchar("player_name", { length: 255 }),
+  nflTeam: varchar("nfl_team", { length: 10 }),
+  position: varchar("position", { length: 10 }),
+  projFpts: real("proj_fpts"),
+  actualFpts: real("actual_fpts"),
+  passPct: text("pass_pct"),
+  passYds: real("pass_yds"),
+  passTds: real("pass_tds"),
+  rushYds: real("rush_yds"),
+  rushTds: real("rush_tds"),
+  recPct: text("rec_pct"),
+  recYds: real("rec_yds"),
+  recTds: real("rec_tds"),
+  pa: real("pa"),
+  ya: real("ya"),
+  sacks: real("sacks"),
+  ints: real("ints"),
+  fg: text("fg"),
+  fgYd: real("fg_yd"),
+  pat: real("pat"),
 }).existing();
 
 // -----------------------------------------------------------------------------

@@ -1,0 +1,147 @@
+WITH
+    pivoted_stats AS (
+        SELECT
+            mps.roster_id,
+            max(
+                CASE
+                    WHEN mps.stat_id = 'passingCompletions' THEN mps.stat_value
+                    ELSE NULL::real
+                END
+            ) AS pass_cmp,
+            max(
+                CASE
+                    WHEN mps.stat_id = 'passingAttempts' THEN mps.stat_value
+                    ELSE NULL::real
+                END
+            ) AS pass_att,
+            max(
+                CASE
+                    WHEN mps.stat_id = 'passingYards' THEN mps.stat_value
+                    ELSE NULL::real
+                END
+            ) AS pass_yds,
+            max(
+                CASE
+                    WHEN mps.stat_id = 'passingTouchdowns' THEN mps.stat_value
+                    ELSE NULL::real
+                END
+            ) AS pass_tds,
+            max(
+                CASE
+                    WHEN mps.stat_id = 'rushingYards' THEN mps.stat_value
+                    ELSE NULL::real
+                END
+            ) AS rush_yds,
+            max(
+                CASE
+                    WHEN mps.stat_id = 'rushingTouchdowns' THEN mps.stat_value
+                    ELSE NULL::real
+                END
+            ) AS rush_tds,
+            max(
+                CASE
+                    WHEN mps.stat_id = 'receivingReceptions' THEN mps.stat_value
+                    ELSE NULL::real
+                END
+            ) AS rec_catches,
+            max(
+                CASE
+                    WHEN mps.stat_id = 'receivingTargets' THEN mps.stat_value
+                    ELSE NULL::real
+                END
+            ) AS rec_tgts,
+            max(
+                CASE
+                    WHEN mps.stat_id = 'receivingYards' THEN mps.stat_value
+                    ELSE NULL::real
+                END
+            ) AS rec_yds,
+            max(
+                CASE
+                    WHEN mps.stat_id = 'receivingTouchdowns' THEN mps.stat_value
+                    ELSE NULL::real
+                END
+            ) AS rec_tds,
+            max(
+                CASE
+                    WHEN mps.stat_id = 'defensivePointsAllowed' THEN mps.stat_value
+                    ELSE NULL::real
+                END
+            ) AS pa,
+            max(
+                CASE
+                    WHEN mps.stat_id = 'defensiveYardsAllowed' THEN mps.stat_value
+                    ELSE NULL::real
+                END
+            ) AS ya,
+            max(
+                CASE
+                    WHEN mps.stat_id = 'defensiveSacks' THEN mps.stat_value
+                    ELSE NULL::real
+                END
+            ) AS sacks,
+            max(
+                CASE
+                    WHEN mps.stat_id = 'defensiveInterceptions' THEN mps.stat_value
+                    ELSE NULL::real
+                END
+            ) AS ints,
+            max(
+                CASE
+                    WHEN mps.stat_id = 'madeFieldGoals' THEN mps.stat_value
+                    ELSE NULL::real
+                END
+            ) AS fg_made,
+            max(
+                CASE
+                    WHEN mps.stat_id = 'attemptedFieldGoals' THEN mps.stat_value
+                    ELSE NULL::real
+                END
+            ) AS fg_att,
+            max(
+                CASE
+                    WHEN mps.stat_id = '214' THEN mps.stat_value
+                    ELSE NULL::real
+                END
+            ) AS fg_yd,
+            max(
+                CASE
+                    WHEN mps.stat_id = 'madeExtraPoints' THEN mps.stat_value
+                    ELSE NULL::real
+                END
+            ) AS pat
+        FROM
+            vffl.matchup_player_stats mps
+        GROUP BY
+            mps.roster_id
+    )
+SELECT
+    mr.matchup_id,
+    mr.manager_id,
+    mr.slot_position AS slot,
+    p.name AS player_name,
+    n.abbrev AS nfl_team,
+    p."position",
+    mr.proj_fpts,
+    mr.actual_fpts,
+    (COALESCE(ps.pass_cmp, 0::real)::integer || ' / ') || COALESCE(ps.pass_att, 0::real)::integer AS pass_pct,
+    COALESCE(ps.pass_yds, 0::real) AS pass_yds,
+    COALESCE(ps.pass_tds, 0::real) AS pass_tds,
+    COALESCE(ps.rush_yds, 0::real) AS rush_yds,
+    COALESCE(ps.rush_tds, 0::real) AS rush_tds,
+    (COALESCE(ps.rec_catches, 0::real)::integer || ' / ') || COALESCE(ps.rec_tgts, 0::real)::integer AS rec_pct,
+    COALESCE(ps.rec_yds, 0::real) AS rec_yds,
+    COALESCE(ps.rec_tds, 0::real) AS rec_tds,
+    COALESCE(ps.pa, 0::real) AS pa,
+    COALESCE(ps.ya, 0::real) AS ya,
+    COALESCE(ps.sacks, 0::real) AS sacks,
+    COALESCE(ps.ints, 0::real) AS ints,
+    (COALESCE(ps.fg_made, 0::real)::integer || ' / ') || COALESCE(ps.fg_att, 0::real)::integer AS fg,
+    COALESCE(ps.fg_yd, 0::real) AS fg_yd,
+    COALESCE(ps.pat, 0::real) AS pat
+FROM
+    vffl.matchup_rosters mr
+    JOIN vffl.players p ON mr.player_id = p.id
+    LEFT JOIN vffl.nfl n ON p.nfl_id = n.id
+    LEFT JOIN pivoted_stats ps ON mr.id = ps.roster_id;
+

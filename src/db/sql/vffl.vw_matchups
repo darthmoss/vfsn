@@ -1,4 +1,5 @@
 SELECT
+    m.id AS matchup_id,
     l.name AS league_name,
     m.season_year,
     m.week,
@@ -33,4 +34,3 @@ FROM
     AND as_std.league_id = m.league_id
     AND as_std.season_year = m.season_year
     AND as_std.week = (m.week - 1);
-
