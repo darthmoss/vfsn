@@ -59,25 +59,28 @@ def resolve_target_year_week():
 def main():
     year, week = resolve_target_year_week()
 
+    # Tier 2: Nightly at 1:00 AM
+    # Populates vffl.weekly_player_status and vffl.transactions (with vffl.players FK safeguards)
     pipeline_scripts = [
         [sys.executable, "vffl_injuries_extractor.py", year, week],
         [sys.executable, "vffl_transactions_extractor.py", year],
     ]
 
-    print(f"--- Starting VFSN Pre-Game & In-Game Wire/Injury Pipeline for {year} Week {week} ---")
+    print(f"--- Starting VFSN Tier 2 (Nightly Wire & Injury) Pipeline for {year} Week {week} ---")
 
     for command in pipeline_scripts:
         script_name = command[1]
-        print(f"\n>> Executing {script_name}...")
+        args_str = " ".join(command[2:])
+        print(f"\n>> Executing {script_name} {args_str}...")
         try:
             subprocess.run(command, cwd=SCRIPT_DIR, check=True)
             print(f"SUCCESS: {script_name} completed.")
         except subprocess.CalledProcessError as e:
             print(f"ERROR: {script_name} failed with exit code {e.returncode}.")
-            print("Halting wire/injury pipeline to prevent cascading database errors.")
+            print("Halting Tier 2 wire/injury pipeline to prevent cascading database errors.")
             sys.exit(1)
 
-    print(f"\n--- Wire & Injury Pipeline for {year} Week {week} Completed Successfully ---")
+    print(f"\n--- Tier 2 (Nightly Wire & Injury) Pipeline for {year} Week {week} Completed Successfully ---")
 
 
 if __name__ == "__main__":

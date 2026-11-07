@@ -1,0 +1,94 @@
+name: "Tier 1 - Live Game-Time Scoring"
+
+on:
+  schedule:
+    # Note: GitHub Actions schedules run in UTC.
+    # Restricted to NFL season months (Sep-Dec, Jan: 9-12,1).
+    #
+    # 1. Thursday Night Football (8:00 PM - 12:00+ AM ET -> 00:00 - 05:00 UTC Friday)
+    - cron: "*/10 0-5 * 9-12,1 5"
+    # 2. Sunday Afternoon & Evening (1:00 PM - 7:50 PM ET -> 17:00 - 23:50 UTC Sunday)
+    - cron: "*/10 17-23 * 9-12,1 0"
+    # 3. Sunday Night Football (8:00 PM - 12:00+ AM ET -> 00:00 - 05:00 UTC Monday)
+    - cron: "*/10 0-5 * 9-12,1 1"
+    # 4. Monday Night Football (8:00 PM - 12:00+ AM ET -> 00:00 - 05:00 UTC Tuesday)
+    - cron: "*/10 0-5 * 9-12,1 2"
+
+  workflow_dispatch:
+    inputs:
+      year:
+        description: "Season year (optional, leave blank to auto-resolve from vffl.leagues)"
+        required: false
+        type: string
+      week:
+        description: "Week number (optional, leave blank to auto-resolve from vffl.leagues)"
+        required: false
+        type: string
+
+concurrency:
+  group: vfsn-tier1-live-scoring
+  cancel-in-progress: false
+
+jobs:
+  run-tier1-pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      ESPN_LEAGUE_ID_RED: ${{ secrets.ESPN_LEAGUE_ID_RED }}
+      ESPN_LEAGUE_ID_BLACK: ${{ secrets.ESPN_LEAGUE_ID_BLACK }}
+      ESPN_S2: ${{ secrets.ESPN_S2 }}
+      ESPN_SWID: ${{ secrets.ESPN_SWID }}
+
+    steps:
+      - name: Check ET Game Window (Guard against DST 1-hour offset on scheduled runs)
+        id: window_check
+        if: github.event_name == 'schedule'
+        run: |
+          DAY=$(TZ="America/New_York" date +%u)   # 4=Thu, 5=Fri, 7=Sun, 1=Mon, 2=Tue
+          HOUR=$(TZ="America/New_York" date +%-H) # 0..23 in Eastern Time
+          SHOULD_RUN="false"
+
+          # Thursday 8:00 PM - 11:59 PM ET (or Friday 12:00 AM hour for end-of-game wrap-up)
+          if [ "$DAY" -eq 4 ] && [ "$HOUR" -ge 20 ]; then SHOULD_RUN="true"; fi
+          if [ "$DAY" -eq 5 ] && [ "$HOUR" -eq 0 ]; then SHOULD_RUN="true"; fi
+
+          # Sunday 1:00 PM - 11:59 PM ET (or Monday 12:00 AM hour for SNF wrap-up)
+          if [ "$DAY" -eq 7 ] && [ "$HOUR" -ge 13 ]; then SHOULD_RUN="true"; fi
+          if [ "$DAY" -eq 1 ] && [ "$HOUR" -eq 0 ]; then SHOULD_RUN="true"; fi
+
+          # Monday 8:00 PM - 11:59 PM ET (or Tuesday 12:00 AM hour for MNF wrap-up)
+          if [ "$DAY" -eq 1 ] && [ "$HOUR" -ge 20 ]; then SHOULD_RUN="true"; fi
+          if [ "$DAY" -eq 2 ] && [ "$HOUR" -eq 0 ]; then SHOULD_RUN="true"; fi
+
+          echo "Current Eastern Time: $(TZ='America/New_York' date)"
+          echo "should_run=$SHOULD_RUN" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout repository
+        if: github.event_name == 'workflow_dispatch' || steps.window_check.outputs.should_run == 'true'
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        if: github.event_name == 'workflow_dispatch' || steps.window_check.outputs.should_run == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        if: github.event_name == 'workflow_dispatch' || steps.window_check.outputs.should_run == 'true'
+        run: |
+          python -m pip install --upgrade pip
+          pip install espn-api psycopg2-binary python-dotenv requests
+
+      - name: Execute Tier 1 (Live Game-Time Scoring) Pipeline
+        if: github.event_name == 'workflow_dispatch' || steps.window_check.outputs.should_run == 'true'
+        run: |
+          if [ -n "${{ inputs.year }}" ] && [ -n "${{ inputs.week }}" ]; then
+            python scripts/vffl_live_scoring_pipeline.py "${{ inputs.year }}" "${{ inputs.week }}"
+          elif [ -n "${{ inputs.year }}" ]; then
+            python scripts/vffl_live_scoring_pipeline.py "${{ inputs.year }}"
+          else
+            python scripts/vffl_live_scoring_pipeline.py
+          fi
+

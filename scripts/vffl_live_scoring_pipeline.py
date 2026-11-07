@@ -59,12 +59,13 @@ def resolve_target_year_week():
 def main():
     year, week = resolve_target_year_week()
 
+    # Tier 1: Near Real-Time Game Data (every 10 minutes during game windows)
+    # Populates vffl.matchups, vffl.matchup_rosters, and vffl.matchup_player_stats
     pipeline_scripts = [
         [sys.executable, "vffl_box_scores_extractor.py", year, week],
-        [sys.executable, "vffl_power_rankings_extractor.py", year, week],
     ]
 
-    print(f"--- Starting VFSN Live Game-Time Scoring Pipeline for {year} Week {week} ---")
+    print(f"--- Starting VFSN Tier 1 (Live Game-Time Scoring) Pipeline for {year} Week {week} ---")
 
     for command in pipeline_scripts:
         script_name = command[1]
@@ -74,10 +75,10 @@ def main():
             print(f"SUCCESS: {script_name} completed.")
         except subprocess.CalledProcessError as e:
             print(f"ERROR: {script_name} failed with exit code {e.returncode}.")
-            print("Halting live scoring pipeline to prevent cascading database calculation errors.")
+            print("Halting Tier 1 live scoring pipeline to prevent cascading database errors.")
             sys.exit(1)
 
-    print(f"\n--- Live Game-Time Scoring Pipeline for {year} Week {week} Completed Successfully ---")
+    print(f"\n--- Tier 1 (Live Game-Time Scoring) Pipeline for {year} Week {week} Completed Successfully ---")
 
 
 if __name__ == "__main__":

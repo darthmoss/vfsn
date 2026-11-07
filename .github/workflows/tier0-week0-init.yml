@@ -1,0 +1,48 @@
+name: "Tier 0 - Week 0 Season Initialization"
+
+on:
+  workflow_dispatch:
+    inputs:
+      year:
+        description: "Season year to initialize (leave blank to auto-resolve)"
+        required: false
+        type: string
+
+concurrency:
+  group: vfsn-tier0-week0-init
+  cancel-in-progress: false
+
+jobs:
+  run-tier0-pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      ESPN_LEAGUE_ID_RED: ${{ secrets.ESPN_LEAGUE_ID_RED }}
+      ESPN_LEAGUE_ID_BLACK: ${{ secrets.ESPN_LEAGUE_ID_BLACK }}
+      ESPN_S2: ${{ secrets.ESPN_S2 }}
+      ESPN_SWID: ${{ secrets.ESPN_SWID }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install espn-api psycopg2-binary python-dotenv requests
+
+      - name: Execute Tier 0 (Week 0 Initialization) Pipeline
+        run: |
+          if [ -n "${{ inputs.year }}" ]; then
+            python scripts/vffl_week_0_pipeline.py "${{ inputs.year }}"
+          else
+            python scripts/vffl_week_0_pipeline.py
+          fi
+

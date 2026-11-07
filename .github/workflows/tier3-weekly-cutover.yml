@@ -1,0 +1,58 @@
+name: "Tier 3 - Weekly Cutover & Finalization"
+
+on:
+  schedule:
+    # Tuesdays at 5:00 AM EST (10:00 UTC) during NFL season months (Sep-Dec, Jan)
+    - cron: "0 10 * 9-12,1 2"
+
+  workflow_dispatch:
+    inputs:
+      year:
+        description: "Season year (optional, leave blank to auto-resolve from vffl.leagues)"
+        required: false
+        type: string
+      completed_week:
+        description: "Completed week to finalize (optional, leave blank to auto-resolve as current_week - 1)"
+        required: false
+        type: string
+
+concurrency:
+  group: vfsn-tier3-weekly-cutover
+  cancel-in-progress: false
+
+jobs:
+  run-tier3-pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      ESPN_LEAGUE_ID_RED: ${{ secrets.ESPN_LEAGUE_ID_RED }}
+      ESPN_LEAGUE_ID_BLACK: ${{ secrets.ESPN_LEAGUE_ID_BLACK }}
+      ESPN_S2: ${{ secrets.ESPN_S2 }}
+      ESPN_SWID: ${{ secrets.ESPN_SWID }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install espn-api psycopg2-binary python-dotenv requests
+
+      - name: Execute Tier 3 (Weekly Cutover) Pipeline
+        run: |
+          if [ -n "${{ inputs.year }}" ] && [ -n "${{ inputs.completed_week }}" ]; then
+            python scripts/vffl_weekly_pipeline.py "${{ inputs.year }}" "${{ inputs.completed_week }}"
+          elif [ -n "${{ inputs.year }}" ]; then
+            python scripts/vffl_weekly_pipeline.py "${{ inputs.year }}"
+          else
+            python scripts/vffl_weekly_pipeline.py
+          fi
+

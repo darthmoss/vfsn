@@ -3,7 +3,8 @@ import psycopg2
 from dotenv import load_dotenv
 from espn_api.football.constant import PLAYER_STATS_MAP
 
-load_dotenv(dotenv_path="../.env.local")
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+load_dotenv(dotenv_path=os.path.join(SCRIPT_DIR, "..", ".env.local"))
 db_url = os.getenv("DATABASE_URL")
 
 print("Connecting to Neon Postgres...")
@@ -28,11 +29,15 @@ for stat_id, raw_desc in PLAYER_STATS_MAP.items():
         existing_stats.add(str_id)
         new_stats_found += 1
 
-# 3. Scan your live database for undocumented string IDs generated during matchups
-print("Scanning vffl.matchup_player_stats for undocumented IDs...")
+# 3. Scan live database tables for undocumented string IDs generated during matchups or global stats
+print("Scanning vffl.matchup_player_stats and vffl.player_stats for undocumented IDs...")
 cursor.execute("""
-    SELECT DISTINCT stat_id 
-    FROM vffl.matchup_player_stats 
+    SELECT DISTINCT stat_id
+    FROM (
+        SELECT stat_id FROM vffl.matchup_player_stats
+        UNION
+        SELECT stat_id FROM vffl.player_stats
+    ) s
     WHERE stat_id NOT IN (SELECT stat_id FROM vffl.stats);
 """)
 undocumented_stats = cursor.fetchall()
