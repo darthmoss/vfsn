@@ -2,20 +2,32 @@ name: "Tier 1 - Live Game-Time Scoring"
 
 on:
   schedule:
-    # Note: GitHub Actions schedules run in UTC.
-    # Restricted to NFL season months (Sep-Dec, Jan: 9-12,1).
+    # GitHub Actions schedules run in UTC.
+    # Uses off-peak minutes (23, 53) and pre-window lead-in hours to avoid
+    # GitHub's top-of-the-hour (:00) cron queue delays.
+    # Once a runner starts inside a game window, it stays alive and loops
+    # every 10 minutes internally for up to 5.5 hours.
     #
-    # 1. Thursday Night Football (8:00 PM - 12:00+ AM ET -> 00:00 - 05:00 UTC Friday)
-    - cron: "*/10 0-5 * 9-12,1 5"
-    # 2. Sunday Afternoon & Evening (1:00 PM - 7:50 PM ET -> 17:00 - 23:50 UTC Sunday)
-    - cron: "*/10 17-23 * 9-12,1 0"
-    # 3. Sunday Night Football (8:00 PM - 12:00+ AM ET -> 00:00 - 05:00 UTC Monday)
-    - cron: "*/10 0-5 * 9-12,1 1"
-    # 4. Monday Night Football (8:00 PM - 12:00+ AM ET -> 00:00 - 05:00 UTC Tuesday)
-    - cron: "*/10 0-5 * 9-12,1 2"
+    # 1. Thursday Night Football (lead-in + window: Thu Afternoon/Evening UTC -> Fri 05:30 UTC)
+    - cron: "23,53 20-23 * 9-12,1 4"
+    - cron: "23,53 0-5 * 9-12,1 5"
+    # 2. Sunday Afternoon & Evening (lead-in + window: Sun 14:00 UTC -> Mon 05:30 UTC)
+    - cron: "23,53 14-23 * 9-12,1 0"
+    - cron: "23,53 0-5 * 9-12,1 1"
+    # 3. Monday Night Football (lead-in + window: Mon Evening UTC -> Tue 05:30 UTC)
+    - cron: "23,53 20-23 * 9-12,1 1"
+    - cron: "23,53 0-5 * 9-12,1 2"
 
   workflow_dispatch:
     inputs:
+      mode:
+        description: "Execution mode: 'loop' (poll every 10m during window) or 'once' (single run)"
+        required: false
+        default: "loop"
+        type: choice
+        options:
+          - loop
+          - once
       year:
         description: "Season year (optional, leave blank to auto-resolve from vffl.leagues)"
         required: false
@@ -32,7 +44,9 @@ concurrency:
 jobs:
   run-tier1-pipeline:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # GitHub Actions allows up to 360 minutes (6 hours) per job.
+    # Our internal loop exits cleanly at 330 minutes (5.5 hours) or when the game window ends.
+    timeout-minutes: 350
 
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
@@ -42,53 +56,123 @@ jobs:
       ESPN_SWID: ${{ secrets.ESPN_SWID }}
 
     steps:
-      - name: Check ET Game Window (Guard against DST 1-hour offset on scheduled runs)
+      - name: Check ET Game Window
         id: window_check
-        if: github.event_name == 'schedule'
         run: |
           DAY=$(TZ="America/New_York" date +%u)   # 4=Thu, 5=Fri, 7=Sun, 1=Mon, 2=Tue
           HOUR=$(TZ="America/New_York" date +%-H) # 0..23 in Eastern Time
+          MIN=$(TZ="America/New_York" date +%-M)  # 0..59 in Eastern Time
           SHOULD_RUN="false"
 
-          # Thursday 8:00 PM - 11:59 PM ET (or Friday 12:00 AM hour for end-of-game wrap-up)
-          if [ "$DAY" -eq 4 ] && [ "$HOUR" -ge 20 ]; then SHOULD_RUN="true"; fi
-          if [ "$DAY" -eq 5 ] && [ "$HOUR" -eq 0 ]; then SHOULD_RUN="true"; fi
+          # Allow slightly early lead-in (from 7:30 PM ET on Thu/Mon, 12:30 PM ET on Sun)
+          # through 12:30 AM ET wrap-up so early-starting cron jobs can hold the runner and loop.
+          # Thursday 7:30 PM - 12:30 AM ET
+          if [ "$DAY" -eq 4 ] && { [ "$HOUR" -gt 19 ] || { [ "$HOUR" -eq 19 ] && [ "$MIN" -ge 30 ]; }; }; then SHOULD_RUN="true"; fi
+          if [ "$DAY" -eq 5 ] && [ "$HOUR" -eq 0 ] && [ "$MIN" -le 30 ]; then SHOULD_RUN="true"; fi
 
-          # Sunday 1:00 PM - 11:59 PM ET (or Monday 12:00 AM hour for SNF wrap-up)
-          if [ "$DAY" -eq 7 ] && [ "$HOUR" -ge 13 ]; then SHOULD_RUN="true"; fi
-          if [ "$DAY" -eq 1 ] && [ "$HOUR" -eq 0 ]; then SHOULD_RUN="true"; fi
+          # Sunday 12:30 PM - 12:30 AM ET
+          if [ "$DAY" -eq 7 ] && { [ "$HOUR" -gt 12 ] || { [ "$HOUR" -eq 12 ] && [ "$MIN" -ge 30 ]; }; }; then SHOULD_RUN="true"; fi
+          if [ "$DAY" -eq 1 ] && [ "$HOUR" -eq 0 ] && [ "$MIN" -le 30 ]; then SHOULD_RUN="true"; fi
 
-          # Monday 8:00 PM - 11:59 PM ET (or Tuesday 12:00 AM hour for MNF wrap-up)
-          if [ "$DAY" -eq 1 ] && [ "$HOUR" -ge 20 ]; then SHOULD_RUN="true"; fi
-          if [ "$DAY" -eq 2 ] && [ "$HOUR" -eq 0 ]; then SHOULD_RUN="true"; fi
+          # Monday 7:30 PM - 12:30 AM ET
+          if [ "$DAY" -eq 1 ] && { [ "$HOUR" -gt 19 ] || { [ "$HOUR" -eq 19 ] && [ "$MIN" -ge 30 ]; }; }; then SHOULD_RUN="true"; fi
+          if [ "$DAY" -eq 2 ] && [ "$HOUR" -eq 0 ] && [ "$MIN" -le 30 ]; then SHOULD_RUN="true"; fi
+
+          # Always run if manually triggered via workflow_dispatch
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            SHOULD_RUN="true"
+          fi
 
           echo "Current Eastern Time: $(TZ='America/New_York' date)"
           echo "should_run=$SHOULD_RUN" >> "$GITHUB_OUTPUT"
 
       - name: Checkout repository
-        if: github.event_name == 'workflow_dispatch' || steps.window_check.outputs.should_run == 'true'
+        if: steps.window_check.outputs.should_run == 'true'
         uses: actions/checkout@v4
 
       - name: Set up Python
-        if: github.event_name == 'workflow_dispatch' || steps.window_check.outputs.should_run == 'true'
+        if: steps.window_check.outputs.should_run == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
       - name: Install Python dependencies
-        if: github.event_name == 'workflow_dispatch' || steps.window_check.outputs.should_run == 'true'
+        if: steps.window_check.outputs.should_run == 'true'
         run: |
           python -m pip install --upgrade pip
           pip install espn-api psycopg2-binary python-dotenv requests
 
-      - name: Execute Tier 1 (Live Game-Time Scoring) Pipeline
-        if: github.event_name == 'workflow_dispatch' || steps.window_check.outputs.should_run == 'true'
+      - name: Execute Tier 1 Live Scoring (10-Minute Polling Loop)
+        if: steps.window_check.outputs.should_run == 'true'
         run: |
-          if [ -n "${{ inputs.year }}" ] && [ -n "${{ inputs.week }}" ]; then
-            python scripts/vffl_live_scoring_pipeline.py "${{ inputs.year }}" "${{ inputs.week }}"
-          elif [ -n "${{ inputs.year }}" ]; then
-            python scripts/vffl_live_scoring_pipeline.py "${{ inputs.year }}"
-          else
-            python scripts/vffl_live_scoring_pipeline.py
+          START_EPOCH=$(date +%s)
+          MAX_RUNTIME_SECONDS=$((330 * 60)) # 5.5 hours max per runner shift
+          MODE="${{ inputs.mode }}"
+          if [ -z "$MODE" ]; then MODE="loop"; fi
+
+          in_game_window() {
+            local d=$(TZ="America/New_York" date +%u)
+            local h=$(TZ="America/New_York" date +%-H)
+            local m=$(TZ="America/New_York" date +%-M)
+
+            # Thursday 7:30 PM - 12:30 AM ET
+            if [ "$d" -eq 4 ] && { [ "$h" -gt 19 ] || { [ "$h" -eq 19 ] && [ "$m" -ge 30 ]; }; }; then return 0; fi
+            if [ "$d" -eq 5 ] && [ "$h" -eq 0 ] && [ "$m" -le 30 ]; then return 0; fi
+
+            # Sunday 12:30 PM - 12:30 AM ET
+            if [ "$d" -eq 7 ] && { [ "$h" -gt 12 ] || { [ "$h" -eq 12 ] && [ "$m" -ge 30 ]; }; }; then return 0; fi
+            if [ "$d" -eq 1 ] && [ "$h" -eq 0 ] && [ "$m" -le 30 ]; then return 0; fi
+
+            # Monday 7:30 PM - 12:30 AM ET
+            if [ "$d" -eq 1 ] && { [ "$h" -gt 19 ] || { [ "$h" -eq 19 ] && [ "$m" -ge 30 ]; }; }; then return 0; fi
+            if [ "$d" -eq 2 ] && [ "$h" -eq 0 ] && [ "$m" -le 30 ]; then return 0; fi
+
+            return 1
+          }
+
+          run_pipeline() {
+            if [ -n "${{ inputs.year }}" ] && [ -n "${{ inputs.week }}" ]; then
+              python scripts/vffl_live_scoring_pipeline.py "${{ inputs.year }}" "${{ inputs.week }}"
+            elif [ -n "${{ inputs.year }}" ]; then
+              python scripts/vffl_live_scoring_pipeline.py "${{ inputs.year }}"
+            else
+              python scripts/vffl_live_scoring_pipeline.py
+            fi
+          }
+
+          # Single-run mode (if requested manually via workflow_dispatch)
+          if [ "$MODE" = "once" ]; then
+            echo "=== Running single pass of Tier 1 Live Scoring Pipeline ==="
+            run_pipeline
+            exit 0
           fi
 
+          # Continuous 10-minute polling loop mode
+          ITERATION=1
+          while true; do
+            echo ""
+            echo "=================================================================="
+            echo "Tier 1 Poll Iteration #$ITERATION — $(TZ='America/New_York' date)"
+            echo "=================================================================="
+
+            if ! run_pipeline; then
+              echo "WARNING: Iteration #$ITERATION encountered an error; will retry in 10 minutes."
+            fi
+
+            NOW_EPOCH=$(date +%s)
+            ELAPSED=$((NOW_EPOCH - START_EPOCH))
+
+            if [ "$ELAPSED" -ge "$MAX_RUNTIME_SECONDS" ]; then
+              echo "Reached 5.5-hour runner shift limit ($ELAPSED seconds). Handing off to next scheduled job."
+              break
+            fi
+
+            if ! in_game_window; then
+              echo "Active ET game window has ended ($(TZ='America/New_York' date)). Stopping Tier 1 polling loop."
+              break
+            fi
+
+            echo "Sleeping 10 minutes until next live scoring poll..."
+            sleep 600
+            ITERATION=$((ITERATION + 1))
+          done

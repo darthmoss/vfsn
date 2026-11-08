@@ -2,8 +2,9 @@ name: "Tier 3 - Weekly Cutover & Finalization"
 
 on:
   schedule:
-    # Tuesdays at 5:00 AM EST (10:00 UTC) during NFL season months (Sep-Dec, Jan)
-    - cron: "0 10 * 9-12,1 2"
+    # Tuesdays at 5:17 AM EST (10:17 UTC) during NFL season months (Sep-Dec, Jan)
+    # Uses off-peak minute (:17) to avoid GitHub's top-of-the-hour (:00) cron queue delays
+    - cron: "17 10 * 9-12,1 2"
 
   workflow_dispatch:
     inputs:
