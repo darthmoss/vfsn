@@ -3,19 +3,19 @@ name: "Tier 1 - Live Game-Time Scoring"
 on:
   schedule:
     # GitHub Actions schedules run in UTC.
-    # Uses off-peak minutes (23, 53) and pre-window lead-in hours to avoid
-    # GitHub's top-of-the-hour (:00) cron queue delays.
+    # Uses off-peak minutes (23, 53) to avoid GitHub's top-of-the-hour (:00) cron delays.
     # Once a runner starts inside a game window, it stays alive and loops
     # every 10 minutes internally for up to 5.5 hours.
     #
-    # 1. Thursday Night Football (lead-in + window: Thu Afternoon/Evening UTC -> Fri 05:30 UTC)
-    - cron: "23,53 20-23 * 9-12,1 4"
+    # 1. Thursday Night Football (~7:00 PM ET - 12:30 AM ET -> Thu 23:53 UTC through Fri 05:23 UTC)
+    - cron: "53 23 * 9-12,1 4"
     - cron: "23,53 0-5 * 9-12,1 5"
-    # 2. Sunday Afternoon & Evening (lead-in + window: Sun 14:00 UTC -> Mon 05:30 UTC)
-    - cron: "23,53 14-23 * 9-12,1 0"
+    # 2. Sunday Afternoon & Night (~12:00 PM ET - 12:30 AM ET -> Sun 16:53 UTC through Mon 05:23 UTC)
+    - cron: "53 16 * 9-12,1 0"
+    - cron: "23,53 17-23 * 9-12,1 0"
     - cron: "23,53 0-5 * 9-12,1 1"
-    # 3. Monday Night Football (lead-in + window: Mon Evening UTC -> Tue 05:30 UTC)
-    - cron: "23,53 20-23 * 9-12,1 1"
+    # 3. Monday Night Football (~7:00 PM ET - 12:30 AM ET -> Mon 23:53 UTC through Tue 05:23 UTC)
+    - cron: "53 23 * 9-12,1 1"
     - cron: "23,53 0-5 * 9-12,1 2"
 
   workflow_dispatch:
@@ -64,18 +64,16 @@ jobs:
           MIN=$(TZ="America/New_York" date +%-M)  # 0..59 in Eastern Time
           SHOULD_RUN="false"
 
-          # Allow slightly early lead-in (from 7:30 PM ET on Thu/Mon, 12:30 PM ET on Sun)
-          # through 12:30 AM ET wrap-up so early-starting cron jobs can hold the runner and loop.
-          # Thursday 7:30 PM - 12:30 AM ET
-          if [ "$DAY" -eq 4 ] && { [ "$HOUR" -gt 19 ] || { [ "$HOUR" -eq 19 ] && [ "$MIN" -ge 30 ]; }; }; then SHOULD_RUN="true"; fi
+          # Thursday 6:45 PM - 12:30 AM ET
+          if [ "$DAY" -eq 4 ] && { [ "$HOUR" -gt 18 ] || { [ "$HOUR" -eq 18 ] && [ "$MIN" -ge 45 ]; }; }; then SHOULD_RUN="true"; fi
           if [ "$DAY" -eq 5 ] && [ "$HOUR" -eq 0 ] && [ "$MIN" -le 30 ]; then SHOULD_RUN="true"; fi
 
-          # Sunday 12:30 PM - 12:30 AM ET
-          if [ "$DAY" -eq 7 ] && { [ "$HOUR" -gt 12 ] || { [ "$HOUR" -eq 12 ] && [ "$MIN" -ge 30 ]; }; }; then SHOULD_RUN="true"; fi
+          # Sunday 11:45 AM - 12:30 AM ET
+          if [ "$DAY" -eq 7 ] && { [ "$HOUR" -gt 11 ] || { [ "$HOUR" -eq 11 ] && [ "$MIN" -ge 45 ]; }; }; then SHOULD_RUN="true"; fi
           if [ "$DAY" -eq 1 ] && [ "$HOUR" -eq 0 ] && [ "$MIN" -le 30 ]; then SHOULD_RUN="true"; fi
 
-          # Monday 7:30 PM - 12:30 AM ET
-          if [ "$DAY" -eq 1 ] && { [ "$HOUR" -gt 19 ] || { [ "$HOUR" -eq 19 ] && [ "$MIN" -ge 30 ]; }; }; then SHOULD_RUN="true"; fi
+          # Monday 6:45 PM - 12:30 AM ET
+          if [ "$DAY" -eq 1 ] && { [ "$HOUR" -gt 18 ] || { [ "$HOUR" -eq 18 ] && [ "$MIN" -ge 45 ]; }; }; then SHOULD_RUN="true"; fi
           if [ "$DAY" -eq 2 ] && [ "$HOUR" -eq 0 ] && [ "$MIN" -le 30 ]; then SHOULD_RUN="true"; fi
 
           # Always run if manually triggered via workflow_dispatch
@@ -115,16 +113,16 @@ jobs:
             local h=$(TZ="America/New_York" date +%-H)
             local m=$(TZ="America/New_York" date +%-M)
 
-            # Thursday 7:30 PM - 12:30 AM ET
-            if [ "$d" -eq 4 ] && { [ "$h" -gt 19 ] || { [ "$h" -eq 19 ] && [ "$m" -ge 30 ]; }; }; then return 0; fi
+            # Thursday 6:45 PM - 12:30 AM ET
+            if [ "$d" -eq 4 ] && { [ "$h" -gt 18 ] || { [ "$h" -eq 18 ] && [ "$m" -ge 45 ]; }; }; then return 0; fi
             if [ "$d" -eq 5 ] && [ "$h" -eq 0 ] && [ "$m" -le 30 ]; then return 0; fi
 
-            # Sunday 12:30 PM - 12:30 AM ET
-            if [ "$d" -eq 7 ] && { [ "$h" -gt 12 ] || { [ "$h" -eq 12 ] && [ "$m" -ge 30 ]; }; }; then return 0; fi
+            # Sunday 11:45 AM - 12:30 AM ET
+            if [ "$d" -eq 7 ] && { [ "$h" -gt 11 ] || { [ "$h" -eq 11 ] && [ "$m" -ge 45 ]; }; }; then return 0; fi
             if [ "$d" -eq 1 ] && [ "$h" -eq 0 ] && [ "$m" -le 30 ]; then return 0; fi
 
-            # Monday 7:30 PM - 12:30 AM ET
-            if [ "$d" -eq 1 ] && { [ "$h" -gt 19 ] || { [ "$h" -eq 19 ] && [ "$m" -ge 30 ]; }; }; then return 0; fi
+            # Monday 6:45 PM - 12:30 AM ET
+            if [ "$d" -eq 1 ] && { [ "$h" -gt 18 ] || { [ "$h" -eq 18 ] && [ "$m" -ge 45 ]; }; }; then return 0; fi
             if [ "$d" -eq 2 ] && [ "$h" -eq 0 ] && [ "$m" -le 30 ]; then return 0; fi
 
             return 1
