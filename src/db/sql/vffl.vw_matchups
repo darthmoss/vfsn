@@ -13,7 +13,17 @@ SELECT
     at.team_name AS away_team,
     COALESCE(as_std.standing, 0) AS away_standing,
     m.away_projected,
-    m.away_score
+    m.away_score,
+    mr.mqi,
+    mr.matchup_rank,
+    CASE mr.matchup_rank
+        WHEN 1 THEN 'Game of the Week'
+        WHEN 2 THEN 'Red Zone Feature'
+        WHEN 3 THEN 'Wild Card Special'
+        WHEN 4 THEN 'Fringe Feature'
+        WHEN 5 THEN 'Cellar Scramble'
+        ELSE NULL
+    END AS matchup_title
 FROM
     vffl.matchups m
     JOIN vffl.leagues l ON m.league_id = l.league_id
@@ -32,4 +42,5 @@ FROM
     LEFT JOIN vffl.standings as_std ON as_std.manager_id = m.away_manager_id
     AND as_std.league_id = m.league_id
     AND as_std.season_year = m.season_year
-    AND as_std.week = (m.week - 1);
+    AND as_std.week = (m.week - 1)
+    LEFT JOIN vffl.vw_matchup_ranking mr ON m.id = mr.matchup_id;

@@ -246,6 +246,9 @@ async function fetchHistoricalMatchupsFallback(
           : 0,
       awayProjected: m.awayProjected,
       awayScore: m.awayScore,
+      mqi: null,
+      matchupRank: null,
+      matchupTitle: null,
     };
   });
 }
@@ -342,7 +345,7 @@ export default async function BoxScorePage({
         eq(vfflVwMatchups.leagueName, dbLeagueName)
       )
     )
-    .orderBy(asc(vfflVwMatchups.matchupId));
+    .orderBy(asc(vfflVwMatchups.matchupRank), asc(vfflVwMatchups.matchupId));
 
   const matchups: BoxScoreMatchupRow[] =
     viewMatchups.length > 0

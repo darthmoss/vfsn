@@ -1,0 +1,151 @@
+WITH
+    matchup_base AS (
+        SELECT
+            m.id AS matchup_id,
+            m.season_year,
+            m.league_id,
+            l.name AS league_name,
+            m.week,
+            m.matchup_type,
+            (hm.first_name || ' ') || "left" (hm.last_name, 1) AS home_mgr,
+            ht.team_name AS home_team,
+            COALESCE(hs.standing, 0) AS home_standing,
+            COALESCE(hs.win_pct, 0.0)::real AS home_win_pct,
+            COALESCE(m.home_projected, 0.0)::real AS home_projected,
+            (am.first_name || ' ') || "left" (am.last_name, 1) AS away_mgr,
+            at.team_name AS away_team,
+            COALESCE(as_std.standing, 0) AS away_standing,
+            COALESCE(as_std.win_pct, 0.0)::real AS away_win_pct,
+            COALESCE(m.away_projected, 0.0)::real AS away_projected,
+            abs(
+                COALESCE(m.home_projected, 0.0) - COALESCE(m.away_projected, 0.0)
+            )::real AS proj_spread,
+            (
+                COALESCE(hs.win_pct, 0.0) + COALESCE(as_std.win_pct, 0.0)
+            )::real AS combined_win_pct,
+            (
+                COALESCE(m.home_projected, 0.0) + COALESCE(m.away_projected, 0.0)
+            )::real AS combined_projected
+        FROM
+            vffl.matchups m
+            JOIN vffl.leagues l ON m.league_id = l.league_id
+            JOIN vffl.managers hm ON m.home_manager_id = hm.id
+            JOIN vffl.teams ht ON m.home_manager_id = ht.manager_id
+            AND m.league_id = ht.league_id
+            AND m.season_year = ht.season_year
+            JOIN vffl.managers am ON m.away_manager_id = am.id
+            JOIN vffl.teams at ON m.away_manager_id = at.manager_id
+            AND m.league_id = at.league_id
+            AND m.season_year = at.season_year
+            LEFT JOIN vffl.standings hs ON hs.manager_id = m.home_manager_id
+            AND hs.league_id = m.league_id
+            AND hs.season_year = m.season_year
+            AND hs.week = (m.week - 1)
+            LEFT JOIN vffl.standings as_std ON as_std.manager_id = m.away_manager_id
+            AND as_std.league_id = m.league_id
+            AND as_std.season_year = m.season_year
+            AND as_std.week = (m.week - 1)
+    ),
+    matchup_z_scores AS (
+        SELECT
+            matchup_base.*,
+            COALESCE(
+                (
+                    avg(matchup_base.proj_spread) OVER w - matchup_base.proj_spread
+                ) / NULLIF(stddev_samp(matchup_base.proj_spread) OVER w, 0),
+                0.0
+            )::real AS comp_z,
+            COALESCE(
+                (
+                    matchup_base.combined_win_pct - avg(matchup_base.combined_win_pct) OVER w
+                ) / NULLIF(stddev_samp(matchup_base.combined_win_pct) OVER w, 0),
+                0.0
+            )::real AS stakes_z,
+            COALESCE(
+                (
+                    matchup_base.combined_projected - avg(matchup_base.combined_projected) OVER w
+                ) / NULLIF(stddev_samp(matchup_base.combined_projected) OVER w, 0),
+                0.0
+            )::real AS shootout_z
+        FROM
+            matchup_base
+        WINDOW
+            w AS (
+                PARTITION BY
+                    matchup_base.season_year,
+                    matchup_base.league_id,
+                    matchup_base.week
+            )
+    ),
+    matchup_mqi AS (
+        SELECT
+            matchup_z_scores.*,
+            round(
+                (
+                    (matchup_z_scores.comp_z * 0.40) + (matchup_z_scores.stakes_z * 0.35) + (matchup_z_scores.shootout_z * 0.25)
+                )::numeric,
+                3
+            )::real AS mqi
+        FROM
+            matchup_z_scores
+    )
+SELECT
+    matchup_id,
+    season_year,
+    league_id,
+    league_name,
+    week,
+    matchup_type,
+    home_mgr,
+    home_team,
+    home_standing,
+    home_win_pct,
+    home_projected,
+    away_mgr,
+    away_team,
+    away_standing,
+    away_win_pct,
+    away_projected,
+    proj_spread,
+    combined_win_pct,
+    combined_projected,
+    round(comp_z::numeric, 3)::real AS comp_z,
+    round(stakes_z::numeric, 3)::real AS stakes_z,
+    round(shootout_z::numeric, 3)::real AS shootout_z,
+    mqi,
+    rank() OVER (
+        PARTITION BY
+            season_year,
+            league_id,
+            week
+        ORDER BY
+            mqi DESC,
+            combined_projected DESC,
+            proj_spread ASC
+    )::integer AS matchup_rank,
+    rank() OVER (
+        PARTITION BY
+            season_year,
+            league_id,
+            week
+        ORDER BY
+            comp_z DESC
+    )::integer AS comp_rank,
+    rank() OVER (
+        PARTITION BY
+            season_year,
+            league_id,
+            week
+        ORDER BY
+            stakes_z DESC
+    )::integer AS stakes_rank,
+    rank() OVER (
+        PARTITION BY
+            season_year,
+            league_id,
+            week
+        ORDER BY
+            shootout_z DESC
+    )::integer AS shootout_rank
+FROM
+    matchup_mqi;

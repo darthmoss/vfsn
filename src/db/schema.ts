@@ -522,6 +522,9 @@ export const vfflVwMatchups = vffl.view("vw_matchups", {
   awayStanding: integer("away_standing"),
   awayProjected: real("away_projected"),
   awayScore: real("away_score"),
+  mqi: real("mqi"),
+  matchupRank: integer("matchup_rank"),
+  matchupTitle: text("matchup_title"),
 }).existing();
 
 // The Matchup Rosters & Box Score Stats View
@@ -551,6 +554,41 @@ export const vfflVwMatchupRosters = vffl.view("vw_matchup_rosters", {
   pat: real("pat"),
   depth: text("depth"),
   diff: real("diff"),
+}).existing();
+
+// The Pre-Kickoff Matchup Quality Index (MQI) Ranking View
+export const vfflVwMatchupRanking = vffl.view("vw_matchup_ranking", {
+  matchupId: integer("matchup_id"),
+  seasonYear: integer("season_year"),
+  leagueId: integer("league_id"),
+  leagueName: varchar("league_name", { length: 50 }),
+  week: integer("week"),
+  matchupType: varchar("matchup_type", { length: 50 }),
+
+  homeMgr: text("home_mgr"),
+  homeTeam: text("home_team"),
+  homeStanding: integer("home_standing"),
+  homeWinPct: real("home_win_pct"),
+  homeProjected: real("home_projected"),
+
+  awayMgr: text("away_mgr"),
+  awayTeam: text("away_team"),
+  awayStanding: integer("away_standing"),
+  awayWinPct: real("away_win_pct"),
+  awayProjected: real("away_projected"),
+
+  projSpread: real("proj_spread"),
+  combinedWinPct: real("combined_win_pct"),
+  combinedProjected: real("combined_projected"),
+
+  compZ: real("comp_z"),
+  stakesZ: real("stakes_z"),
+  shootoutZ: real("shootout_z"),
+  mqi: real("mqi"),
+  matchupRank: integer("matchup_rank"),
+  compRank: integer("comp_rank"),
+  stakesRank: integer("stakes_rank"),
+  shootoutRank: integer("shootout_rank"),
 }).existing();
 
 // -----------------------------------------------------------------------------

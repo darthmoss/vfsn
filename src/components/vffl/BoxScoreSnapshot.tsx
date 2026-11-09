@@ -80,8 +80,8 @@ export default function BoxScoreSnapshot({
           >
             {/* Top Micro Header: Matchup Label & Active Indicator */}
             <div className="w-full flex items-center justify-between gap-2 pb-2 border-b border-[var(--vfsn-border)]">
-              <span className="text-[10px] font-extrabold uppercase tracking-[0.15em] opacity-70">
-                Matchup {idx + 1}
+              <span className="text-[10px] font-extrabold uppercase tracking-[0.15em] opacity-70 truncate">
+                {matchup.matchupTitle ?? `Matchup ${idx + 1}`}
               </span>
               {isActive && (
                 <span
