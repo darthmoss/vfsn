@@ -1,10 +1,14 @@
 "use client";
 
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import type { InferSelectModel } from "@/app/vffl/current-week/mockData";
+import type { InferSelectViewModel } from "drizzle-orm";
 import { vfflVwMatchups } from "@/db/schema";
 
-export type BoxScoreMatchupRow = InferSelectModel<typeof vfflVwMatchups>;
+export type BoxScoreMatchupRow = InferSelectViewModel<typeof vfflVwMatchups> & {
+  mqi: number | null;
+  matchupRank: number | null;
+  matchupTitle: string | null;
+};
 
 interface BoxScoreSnapshotProps {
   matchups: BoxScoreMatchupRow[];
@@ -34,7 +38,7 @@ export default function BoxScoreSnapshot({
   if (matchups.length === 0) {
     return (
       <section
-        className="w-full rounded-[12px] border border-[var(--vfsn-border)] p-6 shadow-[0_4px_20px_rgba(0,0,0,0.25)] text-center text-sm font-bold opacity-75"
+        className="w-full rounded-xl border border-[var(--vfsn-border)] p-6 shadow-[0_4px_20px_rgba(0,0,0,0.25)] text-center text-sm font-bold opacity-75"
         style={{
           backgroundColor: "var(--nav-background, var(--vfsn-surface))",
           color: "var(--nav-text, var(--vfsn-text))",
@@ -66,7 +70,7 @@ export default function BoxScoreSnapshot({
             type="button"
             onClick={() => handleSelectMatchup(matchup.matchupId)}
             aria-pressed={isActive}
-            className="w-full text-left rounded-[12px] p-5 shadow-[0_4px_20px_rgba(0,0,0,0.25)] transition-all duration-200 cursor-pointer flex flex-col justify-between gap-3 hover:translate-y-[-2px]"
+            className="w-full text-left rounded-xl p-5 shadow-[0_4px_20px_rgba(0,0,0,0.25)] transition-all duration-200 cursor-pointer flex flex-col justify-between gap-3 hover:-translate-y-0.5"
             style={{
               backgroundColor: "var(--nav-background, var(--vfsn-surface))",
               color: "var(--nav-text, var(--vfsn-text))",
