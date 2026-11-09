@@ -36,6 +36,7 @@ export default function DivisionToggle({
 
     const params = new URLSearchParams(searchParams.toString());
     params.set("division", division);
+    params.delete("matchupId");
     router.push(`${pathname}?${params.toString()}`, { scroll: false });
   };
 

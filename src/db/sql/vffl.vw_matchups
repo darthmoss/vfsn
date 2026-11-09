@@ -17,7 +17,6 @@ SELECT
 FROM
     vffl.matchups m
     JOIN vffl.leagues l ON m.league_id = l.league_id
-    AND m.season_year = l.season_year
     JOIN vffl.managers hm ON m.home_manager_id = hm.id
     JOIN vffl.teams ht ON m.home_manager_id = ht.manager_id
     AND m.league_id = ht.league_id

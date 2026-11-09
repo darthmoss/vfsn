@@ -46,9 +46,9 @@ export default function NavigationLinks({ isCommissioner }: { isCommissioner: bo
           <svg className="w-[20px] h-[20px] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
           <span>Current Week</span>
         </Link>
-        <Link href="/vffl/matchups" {...getLinkProps("/vffl/matchups")}>
+        <Link href="/vffl/box-score" {...getLinkProps("/vffl/box-score")}>
           <svg className="w-[20px] h-[20px] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-          <span>Matchups</span>
+          <span>Box Score</span>
         </Link>
         <Link href="/vffl/standings" {...getLinkProps("/vffl/standings")}>
           <svg className="w-[20px] h-[20px] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path></svg>

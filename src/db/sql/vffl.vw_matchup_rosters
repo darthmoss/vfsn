@@ -138,7 +138,19 @@ SELECT
     COALESCE(ps.ints, 0::real) AS ints,
     (COALESCE(ps.fg_made, 0::real)::integer || ' / ') || COALESCE(ps.fg_att, 0::real)::integer AS fg,
     COALESCE(ps.fg_yd, 0::real) AS fg_yd,
-    COALESCE(ps.pat, 0::real) AS pat
+    COALESCE(ps.pat, 0::real) AS pat,
+    (
+        p."position" || row_number() OVER (
+            PARTITION BY
+                mr.matchup_id,
+                mr.manager_id,
+                p."position"
+            ORDER BY
+                COALESCE(mr.actual_fpts, 0::real) DESC,
+                COALESCE(mr.proj_fpts, 0::real) DESC
+        )
+    ) AS depth,
+    (COALESCE(mr.actual_fpts, 0::real) - COALESCE(mr.proj_fpts, 0::real)) AS diff
 FROM
     vffl.matchup_rosters mr
     JOIN vffl.players p ON mr.player_id = p.id

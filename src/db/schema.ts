@@ -549,6 +549,8 @@ export const vfflVwMatchupRosters = vffl.view("vw_matchup_rosters", {
   fg: text("fg"),
   fgYd: real("fg_yd"),
   pat: real("pat"),
+  depth: text("depth"),
+  diff: real("diff"),
 }).existing();
 
 // -----------------------------------------------------------------------------
