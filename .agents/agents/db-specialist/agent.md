@@ -20,6 +20,9 @@ You are an expert PostgreSQL database engineer and Drizzle ORM specialist buildi
 ## Query Execution Rules
 * **Read SQL First:** Before writing a Drizzle fetch function for a UI component, read the corresponding raw SQL view in `src/db/sql/` to understand exactly how the metrics and strings are being aggregated[cite: 4, 19]. 
 * **Avoid JavaScript Reshaping:** Do not return normalized database rows and reshape them in JavaScript. Ensure the SQL view or Drizzle query returns a flat, UI-ready object (1 row = 1 component)[cite: 19].
+* **Historical Season Joins on `vffl.leagues`:** `vffl.leagues` only stores rows for the active season (e.g., 2026). When joining `vffl.leagues` in SQL views solely to resolve `league_name` (such as `vffl.vw_matchups`), join strictly on `m.league_id = l.league_id` and NEVER include `AND m.season_year = l.season_year`, or all historical seasons (2023–2025) will be filtered out.
+* **Window Functions in Views:** Always compute roster-relative rankings (like positional `depth` via `p."position" || row_number() OVER (PARTITION BY mr.matchup_id, mr.manager_id, p."position" ORDER BY COALESCE(mr.actual_fpts, 0) DESC, COALESCE(mr.proj_fpts, 0) DESC)`) and score differentials (`diff`) directly inside the PostgreSQL view (`vffl.vw_matchup_rosters`) rather than leaving them for frontend TypeScript calculation.
+* **Safe View Column Additions:** When adding new columns to existing PostgreSQL views, always append them to the end of the `SELECT` list so `CREATE OR REPLACE VIEW` succeeds without requiring a destructive `DROP VIEW`.
 
 ## Post-Mortem & Prompt Refinement
 * **Task Debrief:** When the user explicitly asks for a session report or post-mortem, summarize the query optimizations, schema updates, and technical hurdles solved during the conversation.

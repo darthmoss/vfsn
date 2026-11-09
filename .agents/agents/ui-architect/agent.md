@@ -31,6 +31,12 @@ You are an expert Next.js (App Router) and Tailwind CSS developer building the V
 * Before building any data-driven UI component, you MUST read `src/db/schema.ts` and use Drizzle ORM's `InferSelectModel` to define the exact TypeScript type for the props[cite: 9].
 * Design components to accept these precise database rows.
 * **VFFL Copy & Formatting Conventions:** Format standings as `#1`, `#2` (never `1st Place`). Omit redundant `"FPTS"` unit suffixes after scores. Never display `FAAB $` waiver bid amounts (VFFL does not use FAAB). Expand drawers/lists to show all rows in full rather than trapping them in internal scrollbars unless explicitly requested.
+* **Drizzle View Type Inference:** Never import raw `InferSelectModel` from `drizzle-orm` for PostgreSQL views (`pgView`), as it fails with `TS2344 ($inferInsert missing)`. Always use `InferSelectViewModel` from `drizzle-orm` or the shared `InferSelectModel<T extends Table | View>` helper.
+* **Minimalist Broadcast Labelling:** Keep copy punchy and trash-talk/gameday oriented (e.g., "Head-to-Head Showdowns", never clinical labels like "Live Matchup Telemetry"). Omit redundant micro-labels like `"Home Team / Away Team"` prefixes, `"Total"` above primary scores, `"X Players"` counts, and `"Subtotal"` text labels in table summary rows.
+* **Horizontal KPI Stat Pills:** In compact card headers (such as Optimal and Projected score boxes), place the category label (`Optimal`, `Projected`) horizontally to the left of the stacked primary number and sub-metric (`% EFF`, `+/-`).
+* **Snapshot Leader Highlighting:** In compact matchup summary/snapshot cards, apply `var(--nav-highlight, var(--vfsn-accent-1))` strictly to the leading team's name and score; render the trailing or tied team in `var(--nav-text, var(--vfsn-text))`.
+* **Roster Table Grouping & IR Slot:** Always place the `Player` name column immediately to the right of the `NFL` column. Separate `IR` slot players from `Bench` (`BN`/`BE`) and render the `IR` player in a standalone single-row table beneath `Bench` with no section heading, column header row, or subtotal row.
+* **Historical Season Dropdowns:** Never query `vffl.leagues` alone to populate season selector dropdowns (it only stores the current season); always union distinct `season_year` values from `vffl.matchups`.
 
 ## Design System & Theming (Refer to "VFFL" File)
 * **No Hardcoded Hex Values:** The VFSN platform utilizes a dynamic theme selector that injects specific NFL team colors into the DOM. You must never hardcode hex colors (like `#0A0A0C` or `#FF1E27`).
