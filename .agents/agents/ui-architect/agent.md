@@ -17,6 +17,7 @@ You are an expert Next.js (App Router) and Tailwind CSS developer building the V
 ## Core Directives
 * **Component Strategy:** Default to React Server Components to maximize speed on Vercel's Edge Network. Only use Client Components (`"use client"`) when browser interactivity, state (`useState`), or Clerk authentication hooks strictly require it.
 * **Server-Driven Filters:** Wire page-level toggles (such as Division selectors) via Next.js URL `searchParams` so `page.tsx` remains a React Server Component while dynamically updating all child modules.
+* **URL Filter Transition Feedback:** Wrap pages driven by heavy Server Component queries in `BroadcastLoader` and trigger `triggerVfsnFilterLoading()` inside URL filter controls (`SeasonWeekBadge`, `DivisionToggle`, view toggles) so users see an immediate sweeping progress bar and status spinner while Next.js resolves `searchParams` navigations.
 * **Build Workflow:** Strictly follow the "outside-in, slice-by-slice" approach[cite: 9]. Define the pure CSS shell first, then build individual isolated components, and finally assemble them in the `page.tsx` file[cite: 9].
 
 ## Layout & Grid Rules (Strict Enforcement)
@@ -25,6 +26,7 @@ You are an expert Next.js (App Router) and Tailwind CSS developer building the V
 * **Locked Grids:** Do not use Tailwind responsive breakpoint prefixes (like `lg:` or `md:`) for the main structural columns unless explicitly instructed. Lock the desktop column ratios using strict CSS Grid or proportional Flexbox (e.g., `flex flex-row` with `flex-[2]` and `flex-[1]`) to prevent unintended stacking.
 * **Relaxed Spacing:** Maintain a modern, minimalist feel. Use generous negative space (`gap-8` to `gap-12`) between stacked containers and columns to prevent the UI from feeling cramped.
 * **Tailwind v4 Global CSS Integrity:** Never add unlayered `* { margin: 0; padding: 0; }` resets or legacy `@tailwind` v3 directives to `globals.css`; always preserve `@import "tailwindcss";` and `overflow-x: clip` on `html, body` so Tailwind v4 `@layer utilities` spacing (`gap-10`, `p-6`) and `sticky` sidebars work without conflict.
+* **Widescreen Table Column Proportions:** In full-width (`max-w-[1800px]`) tables—especially tables containing `<td colSpan>` group banner rows—always use inline `style={{ tableLayout: "fixed", width: "100%" }}` paired with an explicit `<colgroup>` whose `<col>` widths use pure percentages summing to `100%` (never mix `px` and `%` in `<colgroup>`, and never leave the `Team` column unconstrained or truncated).
 
 ## Data Contracts & VFFL Formatting (Strict Enforcement)
 * Do NOT hallucinate data shapes or use arbitrary dummy arrays.
@@ -37,6 +39,8 @@ You are an expert Next.js (App Router) and Tailwind CSS developer building the V
 * **Snapshot Leader Highlighting:** In compact matchup summary/snapshot cards, apply `var(--nav-highlight, var(--vfsn-accent-1))` strictly to the leading team's name and score; render the trailing or tied team in `var(--nav-text, var(--vfsn-text))`.
 * **Roster Table Grouping & IR Slot:** Always place the `Player` name column immediately to the right of the `NFL` column. Separate `IR` slot players from `Bench` (`BN`/`BE`) and render the `IR` player in a standalone single-row table beneath `Bench` with no section heading, column header row, or subtotal row.
 * **Historical Season Dropdowns:** Never query `vffl.leagues` alone to populate season selector dropdowns (it only stores the current season); always union distinct `season_year` values from `vffl.matchups`.
+* **Comma-Formatted Cumulative Scores:** Format all cumulative point totals (`points_for`, `points_against`, and multi-week `diff` columns) using `toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })` so 1,000+ scores include comma separators.
+* **Playoff Tier Grouping Scope:** Render Playoff tier group banners (`Playoff Bye-Week`, `Make Playoffs`, `Miss Playoffs`) strictly on Head-to-Head (`H2H`) standings tables, never on All-Play (`DIV` or `VFFL`) leaderboards. Omit redundant `Ranks #1 – #2` sub-labels from group banner headers.
 
 ## Design System & Theming (Refer to "VFFL" File)
 * **No Hardcoded Hex Values:** The VFSN platform utilizes a dynamic theme selector that injects specific NFL team colors into the DOM. You must never hardcode hex colors (like `#0A0A0C` or `#FF1E27`).

@@ -350,6 +350,8 @@ export const vfflVwDivAllPlayStandings = vffl.view("vw_div_all_play_standings", 
   leagueName: varchar("league_name", { length: 255 }),
   managerName: text("manager_name"),
   teamName: varchar("team_name", { length: 255 }),
+  avgPointsFor: real("avg_points_for"),
+  avgPointsAgainst: real("avg_points_against"),
 }).existing();
 
 export const vfflDivAllPlayStandings = vfflVwDivAllPlayStandings;
@@ -373,6 +375,8 @@ export const vfflVwOverallAllPlayStandings = vffl.view("vw_overall_all_play_stan
   leagueName: varchar("league_name", { length: 255 }),
   managerName: text("manager_name"),
   teamName: varchar("team_name", { length: 255 }),
+  avgPointsFor: real("avg_points_for"),
+  avgPointsAgainst: real("avg_points_against"),
 }).existing();
 
 export const vfflOverallAllPlayStandings = vfflVwOverallAllPlayStandings;

@@ -1,3 +1,28 @@
+WITH
+    weekly_scores AS (
+        SELECT
+            matchups.season_year,
+            matchups.league_id,
+            matchups.week,
+            matchups.home_manager_id AS manager_id,
+            matchups.home_score AS points_for
+        FROM
+            vffl.matchups
+        WHERE
+            matchups.home_score IS NOT NULL
+        UNION ALL
+        SELECT
+            matchups.season_year,
+            matchups.league_id,
+            matchups.week,
+            matchups.away_manager_id AS manager_id,
+            matchups.away_score AS points_for
+        FROM
+            vffl.matchups
+        WHERE
+            matchups.away_score IS NOT NULL
+            AND matchups.away_manager_id IS NOT NULL
+    )
 SELECT
     h.season_year,
     h.league_id,
@@ -13,8 +38,8 @@ SELECT
     a.points_for AS away_fpts,
     h.points_for - a.points_for AS diff
 FROM
-    vffl.vw_standings h
-    JOIN vffl.vw_standings a ON h.season_year = a.season_year
+    weekly_scores h
+    JOIN weekly_scores a ON h.season_year = a.season_year
     AND h.league_id = a.league_id
     AND h.week = a.week
     AND h.manager_id <> a.manager_id

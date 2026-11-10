@@ -5,7 +5,7 @@ WITH
             div_all_play_matchups.league_id,
             div_all_play_matchups.week,
             div_all_play_matchups.home_mgr_id AS manager_id,
-            div_all_play_matchups.home_fpts AS wk_pf,
+            sum(div_all_play_matchups.home_fpts) AS wk_pf,
             sum(div_all_play_matchups.away_fpts) AS wk_pa,
             sum(
                 CASE
@@ -31,8 +31,7 @@ WITH
             div_all_play_matchups.season_year,
             div_all_play_matchups.league_id,
             div_all_play_matchups.week,
-            div_all_play_matchups.home_mgr_id,
-            div_all_play_matchups.home_fpts
+            div_all_play_matchups.home_mgr_id
     ),
     cumulative_outcomes AS (
         SELECT
@@ -130,7 +129,25 @@ WITH
                         )
                     ) DESC,
                     cumulative_outcomes.points_for DESC
-            ) AS standing
+            ) AS standing,
+            round(
+                (
+                    cumulative_outcomes.points_for / NULLIF(
+                        cumulative_outcomes.wins + cumulative_outcomes.losses + cumulative_outcomes.ties,
+                        0::numeric
+                    )::double precision
+                )::numeric,
+                2
+            )::real AS avg_points_for,
+            round(
+                (
+                    cumulative_outcomes.points_against / NULLIF(
+                        cumulative_outcomes.wins + cumulative_outcomes.losses + cumulative_outcomes.ties,
+                        0::numeric
+                    )::double precision
+                )::numeric,
+                2
+            )::real AS avg_points_against
         FROM
             cumulative_outcomes
     ),
@@ -148,7 +165,9 @@ WITH
             0.0::real AS points_against,
             0.0::real AS diff,
             0.0::real AS avg_diff,
-            baseline_standings.standing::bigint AS standing
+            baseline_standings.standing::bigint AS standing,
+            0.0::real AS avg_points_for,
+            0.0::real AS avg_points_against
         FROM
             vffl.baseline_standings
     ),
@@ -166,7 +185,9 @@ WITH
             ranked_standings.points_against,
             ranked_standings.diff,
             ranked_standings.avg_diff,
-            ranked_standings.standing
+            ranked_standings.standing,
+            ranked_standings.avg_points_for,
+            ranked_standings.avg_points_against
         FROM
             ranked_standings
         UNION ALL
@@ -183,7 +204,9 @@ WITH
             baseline.points_against,
             baseline.diff,
             baseline.avg_diff,
-            baseline.standing
+            baseline.standing,
+            baseline.avg_points_for,
+            baseline.avg_points_against
         FROM
             baseline
     )
@@ -213,7 +236,9 @@ SELECT
     )::integer AS standing_diff,
     l.name AS league_name,
     (m.first_name || ' ') || "left" (m.last_name, 1) AS manager_name,
-    t.team_name
+    t.team_name,
+    cs.avg_points_for,
+    cs.avg_points_against
 FROM
     combined_standings cs
     JOIN vffl.leagues l ON cs.league_id = l.league_id
