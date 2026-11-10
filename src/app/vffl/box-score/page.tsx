@@ -5,10 +5,10 @@ import {
   vfflLeagues,
   vfflManagers,
   vfflMatchups,
-  vfflStandings,
   vfflTeams,
   vfflVwMatchupRosters,
   vfflVwMatchups,
+  vfflVwStandings,
 } from "@/db/schema";
 import SeasonWeekBadge from "@/components/vffl/SeasonWeekBadge";
 import DivisionToggle from "@/components/vffl/DivisionToggle";
@@ -147,7 +147,7 @@ async function resolveSeasonAndWeekContext(
 
 /**
  * Fallback builder that constructs BoxScoreMatchupRow[] directly from vffl.matchups,
- * vffl.teams, vffl.managers, and vffl.standings if vffl.vw_matchups in Neon
+ * vffl.teams, vffl.managers, and vffl.vw_standings if vffl.vw_matchups in Neon
  * has not yet had the updated view DDL applied.
  */
 async function fetchHistoricalMatchupsFallback(
@@ -182,12 +182,12 @@ async function fetchHistoricalMatchupsFallback(
     db.select().from(vfflManagers),
     db
       .select()
-      .from(vfflStandings)
+      .from(vfflVwStandings)
       .where(
         and(
-          eq(vfflStandings.seasonYear, seasonYear),
-          eq(vfflStandings.leagueId, leagueId),
-          eq(vfflStandings.week, week - 1)
+          eq(vfflVwStandings.seasonYear, seasonYear),
+          eq(vfflVwStandings.leagueId, leagueId),
+          eq(vfflVwStandings.week, week - 1)
         )
       ),
   ]);

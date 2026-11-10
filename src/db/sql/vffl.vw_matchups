@@ -35,11 +35,11 @@ FROM
     JOIN vffl.teams at ON m.away_manager_id = at.manager_id
     AND m.league_id = at.league_id
     AND m.season_year = at.season_year
-    LEFT JOIN vffl.standings hs ON hs.manager_id = m.home_manager_id
+    LEFT JOIN vffl.vw_standings hs ON hs.manager_id = m.home_manager_id
     AND hs.league_id = m.league_id
     AND hs.season_year = m.season_year
     AND hs.week = (m.week - 1)
-    LEFT JOIN vffl.standings as_std ON as_std.manager_id = m.away_manager_id
+    LEFT JOIN vffl.vw_standings as_std ON as_std.manager_id = m.away_manager_id
     AND as_std.league_id = m.league_id
     AND as_std.season_year = m.season_year
     AND as_std.week = (m.week - 1)

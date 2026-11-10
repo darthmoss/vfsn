@@ -109,13 +109,13 @@ WITH
             cumulative_outcomes.ties,
             round(
                 (
-                    cumulative_outcomes.wins + cumulative_outcomes.ties * 0.5
+                    cumulative_outcomes.wins::numeric + cumulative_outcomes.ties::numeric * 0.5
                 ) / NULLIF(
                     cumulative_outcomes.wins + cumulative_outcomes.losses + cumulative_outcomes.ties,
                     0
-                ),
+                )::numeric,
                 3
-            ) AS win_pct,
+            )::real AS win_pct,
             cumulative_outcomes.points_for,
             cumulative_outcomes.points_against,
             cumulative_outcomes.points_for - cumulative_outcomes.points_against AS diff,
@@ -126,10 +126,10 @@ WITH
                     ) / NULLIF(
                         cumulative_outcomes.wins + cumulative_outcomes.losses + cumulative_outcomes.ties,
                         0
-                    ) precision
-                ),
+                    )::double precision
+                )::numeric,
                 2
-            ) AS avg_diff,
+            )::real AS avg_diff,
             rank() OVER (
                 PARTITION BY
                     cumulative_outcomes.season_year,
@@ -138,11 +138,11 @@ WITH
                 ORDER BY
                     (
                         (
-                            cumulative_outcomes.wins + cumulative_outcomes.ties * 0.5
+                            cumulative_outcomes.wins::numeric + cumulative_outcomes.ties::numeric * 0.5
                         ) / NULLIF(
                             cumulative_outcomes.wins + cumulative_outcomes.losses + cumulative_outcomes.ties,
                             0
-                        )
+                        )::numeric
                     ) DESC,
                     cumulative_outcomes.points_for DESC
             ) AS standing
@@ -158,12 +158,12 @@ WITH
             0 AS wins,
             0 AS losses,
             0 AS ties,
-            0.0 AS win_pct,
-            0.0 AS points_for,
-            0.0 AS points_against,
-            0.0 AS diff,
-            0.0 AS avg_diff,
-            baseline_standings.standing AS standing
+            0.0::real AS win_pct,
+            0.0::real AS points_for,
+            0.0::real AS points_against,
+            0.0::real AS diff,
+            0.0::real AS avg_diff,
+            baseline_standings.standing::bigint AS standing
         FROM
             vffl.baseline_standings
     ),
@@ -203,28 +203,36 @@ WITH
             baseline
     )
 SELECT
-    season_year,
-    league_id,
-    week,
-    standing AS standing,
-    manager_id,
-    wins AS wins,
-    losses AS losses,
-    ties AS ties,
-    win_pct,
-    points_for,
-    points_against,
-    diff,
-    avg_diff,
+    cs.season_year,
+    cs.league_id,
+    cs.week,
+    cs.standing::integer AS standing,
+    cs.manager_id,
+    cs.wins::integer AS wins,
+    cs.losses::integer AS losses,
+    cs.ties::integer AS ties,
+    cs.win_pct,
+    cs.points_for,
+    cs.points_against,
+    cs.diff,
+    cs.avg_diff,
     (
-        lag (standing) OVER (
+        lag (cs.standing) OVER (
             PARTITION BY
-                season_year,
-                league_id,
-                manager_id
+                cs.season_year,
+                cs.league_id,
+                cs.manager_id
             ORDER BY
-                week
-        ) - standing
-    ) AS standing_diff
+                cs.week
+        ) - cs.standing
+    )::integer AS standing_diff,
+    l.name AS league_name,
+    (m.first_name || ' ') || "left" (m.last_name, 1) AS manager_name,
+    t.team_name
 FROM
-    combined_standings;
+    combined_standings cs
+    JOIN vffl.leagues l ON cs.league_id = l.league_id
+    JOIN vffl.managers m ON cs.manager_id = m.id
+    LEFT JOIN vffl.teams t ON cs.manager_id = t.manager_id
+    AND cs.league_id = t.league_id
+    AND cs.season_year = t.season_year;

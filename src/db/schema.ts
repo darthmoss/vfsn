@@ -126,7 +126,7 @@ export const vfflStats = vffl.table("stats", {
 });
 
 // H2H Standings View
-export const vfflStandings = vffl.view("standings", {
+export const vfflVwStandings = vffl.view("vw_standings", {
   seasonYear: integer("season_year"),
   leagueId: integer("league_id"),
   week: integer("week"),
@@ -141,7 +141,12 @@ export const vfflStandings = vffl.view("standings", {
   diff: real("diff"),
   avgDiff: real("avg_diff"),
   standingDiff: integer("standing_diff"),
+  leagueName: varchar("league_name", { length: 255 }),
+  managerName: text("manager_name"),
+  teamName: varchar("team_name", { length: 255 }),
 }).existing();
+
+export const vfflStandings = vfflVwStandings;
 
 // The Division Power Rankings View
 export const vfflDivisionPowerRankings = vffl.table("division_power_rankings", {
@@ -327,7 +332,7 @@ export const vfflOverallAllPlayMatchups = vffl.view("overall_all_play_matchups",
 }).existing();
 
 // Division All-Play Standings
-export const vfflDivAllPlayStandings = vffl.view("div_all_play_standings", {
+export const vfflVwDivAllPlayStandings = vffl.view("vw_div_all_play_standings", {
   seasonYear: integer("season_year"),
   leagueId: integer("league_id"),
   week: integer("week"),
@@ -342,10 +347,15 @@ export const vfflDivAllPlayStandings = vffl.view("div_all_play_standings", {
   diff: real("diff"),
   avgDiff: real("avg_diff"),
   standingDiff: integer("standing_diff"),
+  leagueName: varchar("league_name", { length: 255 }),
+  managerName: text("manager_name"),
+  teamName: varchar("team_name", { length: 255 }),
 }).existing();
 
+export const vfflDivAllPlayStandings = vfflVwDivAllPlayStandings;
+
 // Overall All-Play Standings
-export const vfflOverallAllPlayStandings = vffl.view("overall_all_play_standings", {
+export const vfflVwOverallAllPlayStandings = vffl.view("vw_overall_all_play_standings", {
   seasonYear: integer("season_year"),
   leagueId: integer("league_id"),
   week: integer("week"),
@@ -360,7 +370,12 @@ export const vfflOverallAllPlayStandings = vffl.view("overall_all_play_standings
   diff: real("diff"),
   avgDiff: real("avg_diff"),
   standingDiff: integer("standing_diff"),
+  leagueName: varchar("league_name", { length: 255 }),
+  managerName: text("manager_name"),
+  teamName: varchar("team_name", { length: 255 }),
 }).existing();
+
+export const vfflOverallAllPlayStandings = vfflVwOverallAllPlayStandings;
 
 // The Points Against View
 export const vfflPointsAgainst = vffl.view("points_against", {
