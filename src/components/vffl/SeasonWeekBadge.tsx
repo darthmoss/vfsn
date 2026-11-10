@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { triggerVfsnFilterLoading } from "./BroadcastLoader";
 
 interface SeasonWeekBadgeProps {
   seasonYear: number;
@@ -45,18 +46,36 @@ export default function SeasonWeekBadge({
 
   const handleSelectSeason = (nextSeason: number) => {
     setOpenMenu(null);
-    const params = new URLSearchParams(searchParams.toString());
+    const currentStr = searchParams.toString();
+    const params = new URLSearchParams(currentStr);
     params.set("season", String(nextSeason));
     params.delete("matchupId");
-    router.push(`${pathname}?${params.toString()}`, { scroll: false });
+    const nextStr = params.toString();
+    if (nextStr === currentStr) return;
+
+    triggerVfsnFilterLoading(
+      nextStr,
+      currentStr,
+      `Loading Season ${nextSeason}...`
+    );
+    router.push(`${pathname}?${nextStr}`, { scroll: false });
   };
 
   const handleSelectWeek = (nextWeek: number) => {
     setOpenMenu(null);
-    const params = new URLSearchParams(searchParams.toString());
+    const currentStr = searchParams.toString();
+    const params = new URLSearchParams(currentStr);
     params.set("week", String(nextWeek));
     params.delete("matchupId");
-    router.push(`${pathname}?${params.toString()}`, { scroll: false });
+    const nextStr = params.toString();
+    if (nextStr === currentStr) return;
+
+    triggerVfsnFilterLoading(
+      nextStr,
+      currentStr,
+      `Loading Week ${nextWeek}...`
+    );
+    router.push(`${pathname}?${nextStr}`, { scroll: false });
   };
 
   const resolvedSeasons =

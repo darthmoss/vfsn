@@ -540,6 +540,8 @@ export const vfflVwMatchups = vffl.view("vw_matchups", {
   mqi: real("mqi"),
   matchupRank: integer("matchup_rank"),
   matchupTitle: text("matchup_title"),
+  diff: real("diff"),
+  winLoss: text("win_loss"),
 }).existing();
 
 // The Matchup Rosters & Box Score Stats View

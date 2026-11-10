@@ -249,6 +249,18 @@ async function fetchHistoricalMatchupsFallback(
       mqi: null,
       matchupRank: null,
       matchupTitle: null,
+      diff:
+        m.homeScore !== null && m.awayScore !== null
+          ? m.homeScore - m.awayScore
+          : null,
+      winLoss:
+        m.homeScore !== null && m.awayScore !== null
+          ? m.homeScore > m.awayScore
+            ? "W"
+            : m.homeScore < m.awayScore
+              ? "L"
+              : "T"
+          : "T",
     };
   });
 }

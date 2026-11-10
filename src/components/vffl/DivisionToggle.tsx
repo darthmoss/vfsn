@@ -6,6 +6,7 @@ import type {
   DivisionDataset,
   DivisionKey,
 } from "@/app/vffl/current-week/mockData";
+import { triggerVfsnFilterLoading } from "./BroadcastLoader";
 
 interface DivisionToggleProps {
   initialDivision?: DivisionKey;
@@ -34,10 +35,15 @@ export default function DivisionToggle({
     setActiveDivision(division);
     onChange?.(division);
 
-    const params = new URLSearchParams(searchParams.toString());
+    const currentStr = searchParams.toString();
+    const params = new URLSearchParams(currentStr);
     params.set("division", division);
     params.delete("matchupId");
-    router.push(`${pathname}?${params.toString()}`, { scroll: false });
+    const nextStr = params.toString();
+    if (nextStr === currentStr) return;
+
+    triggerVfsnFilterLoading(nextStr, currentStr, `Loading ${division}...`);
+    router.push(`${pathname}?${nextStr}`, { scroll: false });
   };
 
   const activeCount = datasets?.[activeDivision]?.matchups.length;

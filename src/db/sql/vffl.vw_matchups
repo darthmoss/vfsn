@@ -23,7 +23,13 @@ SELECT
         WHEN 4 THEN 'Fringe Feature'
         WHEN 5 THEN 'Cellar Scramble'
         ELSE NULL
-    END AS matchup_title
+    END AS matchup_title,
+    m.home_score - m.away_score AS diff,
+    CASE
+        WHEN m.home_score > m.away_score THEN 'W'
+        WHEN m.home_score < m.away_score THEN 'L'
+        ELSE 'T'
+    END AS win_loss
 FROM
     vffl.matchups m
     JOIN vffl.leagues l ON m.league_id = l.league_id
