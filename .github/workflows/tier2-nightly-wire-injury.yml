@@ -36,8 +36,17 @@ jobs:
       ESPN_LEAGUE_ID_BLACK: ${{ secrets.ESPN_LEAGUE_ID_BLACK }}
       ESPN_S2: ${{ secrets.ESPN_S2 }}
       ESPN_SWID: ${{ secrets.ESPN_SWID }}
+      NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+      GITHUB_CRON_SCHEDULE: ${{ github.event.schedule }}
+      GITHUB_EVENT_NAME: ${{ github.event_name }}
+      GITHUB_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
     steps:
+      - name: Capture Actual Runner Start Time
+        id: job_timer
+        run: |
+          echo "start_epoch=$(date +%s)" >> "$GITHUB_OUTPUT"
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -51,6 +60,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install espn-api psycopg2-binary python-dotenv requests
 
+      - name: Send Job Start Notification & Write Timing Summary
+        run: |
+          python scripts/vffl_pipeline_notifier.py start "Tier 2 - Nightly Wire & Injury Sync" "${{ steps.job_timer.outputs.start_epoch }}"
+
       - name: Execute Tier 2 (Nightly Wire & Injury) Pipeline
         run: |
           if [ -n "${{ inputs.year }}" ] && [ -n "${{ inputs.week }}" ]; then
@@ -60,4 +73,9 @@ jobs:
           else
             python scripts/vffl_wire_injury_pipeline.py
           fi
+
+      - name: Send Job End Notification & Finalize Timing Summary
+        if: always()
+        run: |
+          python scripts/vffl_pipeline_notifier.py end "Tier 2 - Nightly Wire & Injury Sync" "${{ steps.job_timer.outputs.start_epoch }}" "${{ job.status }}"
 

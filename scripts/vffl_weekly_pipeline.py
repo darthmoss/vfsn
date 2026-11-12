@@ -115,10 +115,9 @@ def main():
         # (Registers any newly generated ESPN stat_ids in vffl.stats)
         [sys.executable, "vffl_stats_extractor.py"],
 
-        # Phase 5: Remaining Strength of Schedule & Power Rankings Matrices
-        # (Updates vffl.sos, vffl.division_power_rankings, and vffl.overall_power_rankings)
+        # Phase 5: Remaining Strength of Schedule Matrix
+        # (Updates vffl.sos; Power Rankings are computed dynamically via vffl.vw_div_power_rankings and vffl.vw_overall_power_rankings)
         [sys.executable, "vffl_schedule_extractor.py", year, completed_week],
-        [sys.executable, "vffl_power_rankings_extractor.py", year, completed_week],
     ]
 
     # Phase 6: Initialize Upcoming Week Matchups, Playoff Brackets & Projected Lineups

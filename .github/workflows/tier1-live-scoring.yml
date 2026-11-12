@@ -54,11 +54,18 @@ jobs:
       ESPN_LEAGUE_ID_BLACK: ${{ secrets.ESPN_LEAGUE_ID_BLACK }}
       ESPN_S2: ${{ secrets.ESPN_S2 }}
       ESPN_SWID: ${{ secrets.ESPN_SWID }}
+      NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+      GITHUB_CRON_SCHEDULE: ${{ github.event.schedule }}
+      GITHUB_EVENT_NAME: ${{ github.event_name }}
+      GITHUB_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
     steps:
       - name: Check ET Game Window
         id: window_check
         run: |
+          START_EPOCH=$(date +%s)
+          echo "start_epoch=$START_EPOCH" >> "$GITHUB_OUTPUT"
+
           DAY=$(TZ="America/New_York" date +%u)   # 4=Thu, 5=Fri, 7=Sun, 1=Mon, 2=Tue
           HOUR=$(TZ="America/New_York" date +%-H) # 0..23 in Eastern Time
           MIN=$(TZ="America/New_York" date +%-M)  # 0..59 in Eastern Time
@@ -99,6 +106,11 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install espn-api psycopg2-binary python-dotenv requests
+
+      - name: Send Job Start Notification & Write Timing Summary
+        if: steps.window_check.outputs.should_run == 'true'
+        run: |
+          python scripts/vffl_pipeline_notifier.py start "Tier 1 - Live Game-Time Scoring" "${{ steps.window_check.outputs.start_epoch }}"
 
       - name: Execute Tier 1 Live Scoring (10-Minute Polling Loop)
         if: steps.window_check.outputs.should_run == 'true'
@@ -174,3 +186,8 @@ jobs:
             sleep 600
             ITERATION=$((ITERATION + 1))
           done
+
+      - name: Send Job End Notification & Finalize Timing Summary
+        if: always() && steps.window_check.outputs.should_run == 'true'
+        run: |
+          python scripts/vffl_pipeline_notifier.py end "Tier 1 - Live Game-Time Scoring" "${{ steps.window_check.outputs.start_epoch }}" "${{ job.status }}"

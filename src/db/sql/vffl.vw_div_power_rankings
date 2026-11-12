@@ -1,0 +1,548 @@
+WITH
+    roster_pos_ranked AS (
+        SELECT
+            m.season_year,
+            m.league_id,
+            m.week,
+            mr.manager_id,
+            p."position" AS pos,
+            mr.slot_position,
+            GREATEST(COALESCE(mr.actual_fpts, 0.0::real), 0.0::real)::double precision AS pos_pts,
+            COALESCE(mr.actual_fpts, 0.0::real)::double precision AS raw_pts,
+            row_number() OVER (
+                PARTITION BY
+                    m.season_year,
+                    m.league_id,
+                    m.week,
+                    mr.manager_id,
+                    p."position"
+                ORDER BY
+                    COALESCE(mr.actual_fpts, 0.0::real) DESC
+            ) AS pos_rn
+        FROM
+            vffl.matchup_rosters mr
+            JOIN vffl.matchups m ON mr.matchup_id = m.id
+            JOIN vffl.players p ON mr.player_id = p.id
+        WHERE
+            m.week > 0
+    ),
+    roster_flex_ranked AS (
+        SELECT
+            rpr.season_year,
+            rpr.league_id,
+            rpr.week,
+            rpr.manager_id,
+            rpr.pos,
+            rpr.slot_position,
+            rpr.pos_pts,
+            rpr.raw_pts,
+            rpr.pos_rn,
+            CASE
+                WHEN (
+                    rpr.pos IN ('RB', 'WR', 'TE')
+                    AND rpr.pos_rn > 1
+                    AND rpr.pos_pts > 0.0::double precision
+                ) THEN row_number() OVER (
+                    PARTITION BY
+                        rpr.season_year,
+                        rpr.league_id,
+                        rpr.week,
+                        rpr.manager_id,
+                        (
+                            rpr.pos IN ('RB', 'WR', 'TE')
+                            AND rpr.pos_rn > 1
+                            AND rpr.pos_pts > 0.0::double precision
+                        )
+                    ORDER BY
+                        rpr.pos_pts DESC
+                )
+                ELSE NULL::bigint
+            END AS flex_rn
+        FROM
+            roster_pos_ranked rpr
+    ),
+    weekly_roster_totals AS (
+        SELECT
+            rfr.season_year,
+            rfr.league_id,
+            rfr.week,
+            rfr.manager_id,
+            sum(
+                CASE
+                    WHEN rfr.slot_position NOT IN ('BE', 'IR', 'Bench', '20', '21') THEN rfr.raw_pts
+                    ELSE 0.0::double precision
+                END
+            ) AS wk_act_fpts,
+            sum(
+                CASE
+                    WHEN (
+                        rfr.pos IN ('QB', 'RB', 'WR', 'TE', 'D/ST', 'K')
+                        AND rfr.pos_rn = 1
+                        AND rfr.pos_pts > 0.0::double precision
+                    )
+                    OR (
+                        rfr.flex_rn IS NOT NULL
+                        AND rfr.flex_rn <= 4
+                    ) THEN rfr.pos_pts
+                    ELSE 0.0::double precision
+                END
+            ) AS wk_opt_fpts
+        FROM
+            roster_flex_ranked rfr
+        GROUP BY
+            rfr.season_year,
+            rfr.league_id,
+            rfr.week,
+            rfr.manager_id
+    ),
+    weekly_ap AS (
+        SELECT
+            dap.season_year,
+            dap.league_id,
+            dap.week,
+            dap.home_mgr_id AS manager_id,
+            sum(
+                CASE
+                    WHEN dap.diff > 0.0::double precision THEN 1
+                    ELSE 0
+                END
+            ) AS wk_ap_wins,
+            sum(
+                CASE
+                    WHEN dap.diff < 0.0::double precision THEN 1
+                    ELSE 0
+                END
+            ) AS wk_ap_losses,
+            sum(
+                CASE
+                    WHEN dap.diff = 0.0::double precision THEN 1
+                    ELSE 0
+                END
+            ) AS wk_ap_ties
+        FROM
+            vffl.div_all_play_matchups dap
+        GROUP BY
+            dap.season_year,
+            dap.league_id,
+            dap.week,
+            dap.home_mgr_id
+    ),
+    matchup_scores AS (
+        SELECT
+            matchups.season_year,
+            matchups.league_id,
+            matchups.week,
+            matchups.home_manager_id AS manager_id,
+            matchups.home_score AS score
+        FROM
+            vffl.matchups
+        WHERE
+            matchups.home_score IS NOT NULL
+            AND matchups.week > 0
+        UNION ALL
+        SELECT
+            matchups.season_year,
+            matchups.league_id,
+            matchups.week,
+            matchups.away_manager_id AS manager_id,
+            matchups.away_score AS score
+        FROM
+            vffl.matchups
+        WHERE
+            matchups.away_score IS NOT NULL
+            AND matchups.away_manager_id IS NOT NULL
+            AND matchups.week > 0
+    ),
+    rolling_volatility AS (
+        SELECT
+            ms.season_year,
+            ms.league_id,
+            ms.week,
+            ms.manager_id,
+            COALESCE(
+                stddev_samp(ms.score) OVER (
+                    PARTITION BY
+                        ms.season_year,
+                        ms.league_id,
+                        ms.manager_id
+                    ORDER BY
+                        ms.week
+                ),
+                0.0::double precision
+            ) AS perf_var
+        FROM
+            matchup_scores ms
+    ),
+    cumulative_metrics AS (
+        SELECT
+            wrt.season_year,
+            wrt.league_id,
+            wrt.week,
+            wrt.manager_id,
+            COALESCE(wap.wk_ap_wins, 0::bigint) AS wk_ap_wins,
+            COALESCE(wap.wk_ap_losses, 0::bigint) AS wk_ap_losses,
+            COALESCE(wap.wk_ap_ties, 0::bigint) AS wk_ap_ties,
+            COALESCE(
+                (
+                    COALESCE(wap.wk_ap_wins, 0::bigint)::double precision + (COALESCE(wap.wk_ap_ties, 0::bigint)::double precision * 0.5::double precision)
+                ) / NULLIF(
+                    (COALESCE(wap.wk_ap_wins, 0::bigint) + COALESCE(wap.wk_ap_losses, 0::bigint) + COALESCE(wap.wk_ap_ties, 0::bigint))::double precision,
+                    0.0::double precision
+                ),
+                0.0::double precision
+            ) AS wk_ap_win_pct,
+            wrt.wk_act_fpts,
+            wrt.wk_opt_fpts,
+            COALESCE(
+                wrt.wk_act_fpts / NULLIF(wrt.wk_opt_fpts, 0.0::double precision),
+                0.0::double precision
+            ) AS wk_eff_pct,
+            COALESCE(rv.perf_var, 0.0::double precision) AS wk_perf_var,
+            sum(COALESCE(wap.wk_ap_wins, 0::bigint)) OVER w_cum AS std_ap_wins,
+            sum(COALESCE(wap.wk_ap_losses, 0::bigint)) OVER w_cum AS std_ap_losses,
+            sum(COALESCE(wap.wk_ap_ties, 0::bigint)) OVER w_cum AS std_ap_ties,
+            sum(wrt.wk_act_fpts) OVER w_cum AS std_act_fpts,
+            sum(wrt.wk_opt_fpts) OVER w_cum AS std_opt_fpts,
+            COALESCE(rv.perf_var, 0.0::double precision) AS std_perf_var
+        FROM
+            weekly_roster_totals wrt
+            LEFT JOIN weekly_ap wap ON wrt.season_year = wap.season_year
+            AND wrt.league_id = wap.league_id
+            AND wrt.week = wap.week
+            AND wrt.manager_id = wap.manager_id
+            LEFT JOIN rolling_volatility rv ON wrt.season_year = rv.season_year
+            AND wrt.league_id = rv.league_id
+            AND wrt.week = rv.week
+            AND wrt.manager_id = rv.manager_id
+        WINDOW
+            w_cum AS (
+                PARTITION BY
+                    wrt.season_year,
+                    wrt.league_id,
+                    wrt.manager_id
+                ORDER BY
+                    wrt.week
+            )
+    ),
+    std_rates AS (
+        SELECT
+            cm.*,
+            COALESCE(
+                (
+                    cm.std_ap_wins::double precision + (cm.std_ap_ties::double precision * 0.5::double precision)
+                ) / NULLIF(
+                    (cm.std_ap_wins + cm.std_ap_losses + cm.std_ap_ties)::double precision,
+                    0.0::double precision
+                ),
+                0.0::double precision
+            ) AS std_ap_win_pct,
+            COALESCE(
+                cm.std_act_fpts / NULLIF(cm.std_opt_fpts, 0.0::double precision),
+                0.0::double precision
+            ) AS std_eff_pct
+        FROM
+            cumulative_metrics cm
+    ),
+    z_scores AS (
+        SELECT
+            sr.*,
+            COALESCE(
+                (sr.wk_ap_win_pct - avg(sr.wk_ap_win_pct) OVER w_pop) / NULLIF(stddev_samp(sr.wk_ap_win_pct) OVER w_pop, 0.0::double precision),
+                0.0::double precision
+            ) AS wk_ap_z,
+            COALESCE(
+                (sr.wk_act_fpts - avg(sr.wk_act_fpts) OVER w_pop) / NULLIF(stddev_samp(sr.wk_act_fpts) OVER w_pop, 0.0::double precision),
+                0.0::double precision
+            ) AS wk_act_z,
+            COALESCE(
+                (sr.wk_opt_fpts - avg(sr.wk_opt_fpts) OVER w_pop) / NULLIF(stddev_samp(sr.wk_opt_fpts) OVER w_pop, 0.0::double precision),
+                0.0::double precision
+            ) AS wk_opt_z,
+            COALESCE(
+                (sr.wk_eff_pct - avg(sr.wk_eff_pct) OVER w_pop) / NULLIF(stddev_samp(sr.wk_eff_pct) OVER w_pop, 0.0::double precision),
+                0.0::double precision
+            ) AS wk_eff_z,
+            COALESCE(
+                (sr.wk_perf_var - avg(sr.wk_perf_var) OVER w_pop) / NULLIF(stddev_samp(sr.wk_perf_var) OVER w_pop, 0.0::double precision),
+                0.0::double precision
+            ) AS wk_perf_z,
+            COALESCE(
+                (sr.std_ap_win_pct - avg(sr.std_ap_win_pct) OVER w_pop) / NULLIF(stddev_samp(sr.std_ap_win_pct) OVER w_pop, 0.0::double precision),
+                0.0::double precision
+            ) AS std_ap_z,
+            COALESCE(
+                (sr.std_act_fpts - avg(sr.std_act_fpts) OVER w_pop) / NULLIF(stddev_samp(sr.std_act_fpts) OVER w_pop, 0.0::double precision),
+                0.0::double precision
+            ) AS std_act_z,
+            COALESCE(
+                (sr.std_opt_fpts - avg(sr.std_opt_fpts) OVER w_pop) / NULLIF(stddev_samp(sr.std_opt_fpts) OVER w_pop, 0.0::double precision),
+                0.0::double precision
+            ) AS std_opt_z,
+            COALESCE(
+                (sr.std_eff_pct - avg(sr.std_eff_pct) OVER w_pop) / NULLIF(stddev_samp(sr.std_eff_pct) OVER w_pop, 0.0::double precision),
+                0.0::double precision
+            ) AS std_eff_z,
+            COALESCE(
+                (sr.std_perf_var - avg(sr.std_perf_var) OVER w_pop) / NULLIF(stddev_samp(sr.std_perf_var) OVER w_pop, 0.0::double precision),
+                0.0::double precision
+            ) AS std_perf_z
+        FROM
+            std_rates sr
+        WINDOW
+            w_pop AS (
+                PARTITION BY
+                    sr.season_year,
+                    sr.league_id,
+                    sr.week
+            )
+    ),
+    power_scores AS (
+        SELECT
+            zs.*,
+            (
+                (zs.wk_ap_z * 0.45::double precision) + (zs.wk_act_z * 0.30::double precision) + (zs.wk_eff_z * 0.10::double precision) + (zs.wk_perf_z * 0.10::double precision) + (zs.wk_opt_z * 0.05::double precision)
+            ) AS wk_power_score,
+            (
+                (zs.std_ap_z * 0.45::double precision) + (zs.std_act_z * 0.30::double precision) + (zs.std_eff_z * 0.10::double precision) + (zs.std_perf_z * 0.10::double precision) + (zs.std_opt_z * 0.05::double precision)
+            ) AS std_power_score
+        FROM
+            z_scores zs
+    ),
+    ranked_power AS (
+        SELECT
+            ps.season_year,
+            ps.league_id,
+            ps.week,
+            ps.manager_id,
+            ps.wk_ap_wins::integer AS wk_ap_wins,
+            ps.wk_ap_losses::integer AS wk_ap_losses,
+            ps.wk_ap_ties::integer AS wk_ap_ties,
+            round(ps.wk_ap_win_pct::numeric, 4)::real AS wk_ap_win_pct,
+            round(ps.wk_act_fpts::numeric, 2)::real AS wk_act_fpts,
+            round(ps.wk_opt_fpts::numeric, 2)::real AS wk_opt_fpts,
+            round(ps.wk_eff_pct::numeric, 4)::real AS wk_eff_pct,
+            round(ps.wk_perf_var::numeric, 4)::real AS wk_perf_var,
+            round(ps.wk_ap_z::numeric, 4)::real AS wk_ap_z,
+            round(ps.wk_act_z::numeric, 4)::real AS wk_act_z,
+            round(ps.wk_opt_z::numeric, 4)::real AS wk_opt_z,
+            round(ps.wk_eff_z::numeric, 4)::real AS wk_eff_z,
+            round(ps.wk_perf_z::numeric, 4)::real AS wk_perf_z,
+            round(ps.wk_power_score::numeric, 4)::real AS wk_power_score,
+            rank() OVER (
+                PARTITION BY
+                    ps.season_year,
+                    ps.league_id,
+                    ps.week
+                ORDER BY
+                    ps.wk_power_score DESC,
+                    ps.wk_act_fpts DESC
+            )::integer AS wk_power_rank,
+            ps.std_ap_wins::integer AS std_ap_wins,
+            ps.std_ap_losses::integer AS std_ap_losses,
+            ps.std_ap_ties::integer AS std_ap_ties,
+            round(ps.std_ap_win_pct::numeric, 4)::real AS std_ap_win_pct,
+            round(ps.std_act_fpts::numeric, 2)::real AS std_act_fpts,
+            round(ps.std_opt_fpts::numeric, 2)::real AS std_opt_fpts,
+            round(ps.std_eff_pct::numeric, 4)::real AS std_eff_pct,
+            round(ps.std_perf_var::numeric, 4)::real AS std_perf_var,
+            round(ps.std_ap_z::numeric, 4)::real AS std_ap_z,
+            round(ps.std_act_z::numeric, 4)::real AS std_act_z,
+            round(ps.std_opt_z::numeric, 4)::real AS std_opt_z,
+            round(ps.std_eff_z::numeric, 4)::real AS std_eff_z,
+            round(ps.std_perf_z::numeric, 4)::real AS std_perf_z,
+            round(ps.std_power_score::numeric, 4)::real AS std_power_score,
+            rank() OVER (
+                PARTITION BY
+                    ps.season_year,
+                    ps.league_id,
+                    ps.week
+                ORDER BY
+                    ps.std_power_score DESC,
+                    ps.std_act_fpts DESC
+            )::integer AS std_power_rank
+        FROM
+            power_scores ps
+    ),
+    baseline AS (
+        SELECT
+            bs.season_year,
+            bs.league_id,
+            0 AS week,
+            bs.manager_id,
+            0 AS wk_ap_wins,
+            0 AS wk_ap_losses,
+            0 AS wk_ap_ties,
+            0.0::real AS wk_ap_win_pct,
+            0.0::real AS wk_act_fpts,
+            0.0::real AS wk_opt_fpts,
+            0.0::real AS wk_eff_pct,
+            0.0::real AS wk_perf_var,
+            0.0::real AS wk_ap_z,
+            0.0::real AS wk_act_z,
+            0.0::real AS wk_opt_z,
+            0.0::real AS wk_eff_z,
+            0.0::real AS wk_perf_z,
+            0.0::real AS wk_power_score,
+            bs.standing AS wk_power_rank,
+            0 AS std_ap_wins,
+            0 AS std_ap_losses,
+            0 AS std_ap_ties,
+            0.0::real AS std_ap_win_pct,
+            0.0::real AS std_act_fpts,
+            0.0::real AS std_opt_fpts,
+            0.0::real AS std_eff_pct,
+            0.0::real AS std_perf_var,
+            0.0::real AS std_ap_z,
+            0.0::real AS std_act_z,
+            0.0::real AS std_opt_z,
+            0.0::real AS std_eff_z,
+            0.0::real AS std_perf_z,
+            0.0::real AS std_power_score,
+            bs.standing AS std_power_rank
+        FROM
+            vffl.baseline_standings bs
+    ),
+    combined_rankings AS (
+        SELECT
+            rp.season_year,
+            rp.league_id,
+            rp.week,
+            rp.manager_id,
+            rp.wk_ap_wins,
+            rp.wk_ap_losses,
+            rp.wk_ap_ties,
+            rp.wk_ap_win_pct,
+            rp.wk_act_fpts,
+            rp.wk_opt_fpts,
+            rp.wk_eff_pct,
+            rp.wk_perf_var,
+            rp.wk_ap_z,
+            rp.wk_act_z,
+            rp.wk_opt_z,
+            rp.wk_eff_z,
+            rp.wk_perf_z,
+            rp.wk_power_score,
+            rp.wk_power_rank,
+            rp.std_ap_wins,
+            rp.std_ap_losses,
+            rp.std_ap_ties,
+            rp.std_ap_win_pct,
+            rp.std_act_fpts,
+            rp.std_opt_fpts,
+            rp.std_eff_pct,
+            rp.std_perf_var,
+            rp.std_ap_z,
+            rp.std_act_z,
+            rp.std_opt_z,
+            rp.std_eff_z,
+            rp.std_perf_z,
+            rp.std_power_score,
+            rp.std_power_rank
+        FROM
+            ranked_power rp
+        UNION ALL
+        SELECT
+            b.season_year,
+            b.league_id,
+            b.week,
+            b.manager_id,
+            b.wk_ap_wins,
+            b.wk_ap_losses,
+            b.wk_ap_ties,
+            b.wk_ap_win_pct,
+            b.wk_act_fpts,
+            b.wk_opt_fpts,
+            b.wk_eff_pct,
+            b.wk_perf_var,
+            b.wk_ap_z,
+            b.wk_act_z,
+            b.wk_opt_z,
+            b.wk_eff_z,
+            b.wk_perf_z,
+            b.wk_power_score,
+            b.wk_power_rank,
+            b.std_ap_wins,
+            b.std_ap_losses,
+            b.std_ap_ties,
+            b.std_ap_win_pct,
+            b.std_act_fpts,
+            b.std_opt_fpts,
+            b.std_eff_pct,
+            b.std_perf_var,
+            b.std_ap_z,
+            b.std_act_z,
+            b.std_opt_z,
+            b.std_eff_z,
+            b.std_perf_z,
+            b.std_power_score,
+            b.std_power_rank
+        FROM
+            baseline b
+    )
+SELECT
+    cr.season_year,
+    cr.league_id,
+    cr.week,
+    cr.manager_id,
+    cr.wk_ap_wins,
+    cr.wk_ap_losses,
+    cr.wk_ap_ties,
+    cr.wk_ap_win_pct,
+    cr.wk_act_fpts,
+    cr.wk_opt_fpts,
+    cr.wk_eff_pct,
+    cr.wk_perf_var,
+    cr.wk_ap_z,
+    cr.wk_act_z,
+    cr.wk_opt_z,
+    cr.wk_eff_z,
+    cr.wk_perf_z,
+    cr.wk_power_score,
+    cr.wk_power_rank,
+    COALESCE(
+        lag (cr.wk_power_rank) OVER (
+            PARTITION BY
+                cr.season_year,
+                cr.league_id,
+                cr.manager_id
+            ORDER BY
+                cr.week
+        ) - cr.wk_power_rank,
+        0
+    )::integer AS wk_rank_diff,
+    cr.std_ap_wins,
+    cr.std_ap_losses,
+    cr.std_ap_ties,
+    cr.std_ap_win_pct,
+    cr.std_act_fpts,
+    cr.std_opt_fpts,
+    cr.std_eff_pct,
+    cr.std_perf_var,
+    cr.std_ap_z,
+    cr.std_act_z,
+    cr.std_opt_z,
+    cr.std_eff_z,
+    cr.std_perf_z,
+    cr.std_power_score,
+    cr.std_power_rank,
+    COALESCE(
+        lag (cr.std_power_rank) OVER (
+            PARTITION BY
+                cr.season_year,
+                cr.league_id,
+                cr.manager_id
+            ORDER BY
+                cr.week
+        ) - cr.std_power_rank,
+        0
+    )::integer AS std_rank_diff,
+    l.name AS league_name,
+    (m.first_name || ' ') || "left" (m.last_name, 1) AS manager_name,
+    t.team_name
+FROM
+    combined_rankings cr
+    JOIN vffl.leagues l ON cr.league_id = l.league_id
+    JOIN vffl.managers m ON cr.manager_id = m.id
+    LEFT JOIN vffl.teams t ON cr.manager_id = t.manager_id
+    AND cr.league_id = t.league_id
+    AND cr.season_year = t.season_year;

@@ -16,7 +16,7 @@ WITH
             dpr.wk_opt_fpts
         FROM
             vffl.matchups m_1
-            LEFT JOIN vffl.division_power_rankings dpr ON m_1.home_manager_id = dpr.manager_id
+            LEFT JOIN vffl.vw_div_power_rankings dpr ON m_1.home_manager_id = dpr.manager_id
             AND m_1.league_id = dpr.league_id
             AND m_1.season_year = dpr.season_year
             AND m_1.week = dpr.week
@@ -40,7 +40,7 @@ WITH
             dpr.wk_opt_fpts
         FROM
             vffl.matchups m_1
-            LEFT JOIN vffl.division_power_rankings dpr ON m_1.away_manager_id = dpr.manager_id
+            LEFT JOIN vffl.vw_div_power_rankings dpr ON m_1.away_manager_id = dpr.manager_id
             AND m_1.league_id = dpr.league_id
             AND m_1.season_year = dpr.season_year
             AND m_1.week = dpr.week

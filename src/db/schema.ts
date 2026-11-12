@@ -149,12 +149,11 @@ export const vfflVwStandings = vffl.view("vw_standings", {
 export const vfflStandings = vfflVwStandings;
 
 // The Division Power Rankings View
-export const vfflDivisionPowerRankings = vffl.table("division_power_rankings", {
-  id: serial("id").primaryKey(),
-  seasonYear: integer("season_year").notNull(),
-  leagueId: integer("league_id").notNull(),
-  week: integer("week").notNull(),
-  managerId: integer("manager_id").notNull().references(() => vfflManagers.id),
+export const vfflVwDivPowerRankings = vffl.view("vw_div_power_rankings", {
+  seasonYear: integer("season_year"),
+  leagueId: integer("league_id"),
+  week: integer("week"),
+  managerId: integer("manager_id"),
   
   // Weekly Metrics
   wkApWins: integer("wk_ap_wins"),
@@ -191,15 +190,21 @@ export const vfflDivisionPowerRankings = vffl.table("division_power_rankings", {
   stdPowerScore: real("std_power_score"),
   stdPowerRank: integer("std_power_rank"),
   stdRankDiff: integer("std_rank_diff"),
-});
+
+  // UI Display Columns
+  leagueName: varchar("league_name", { length: 255 }),
+  managerName: text("manager_name"),
+  teamName: varchar("team_name", { length: 255 }),
+}).existing();
+
+export const vfflDivisionPowerRankings = vfflVwDivPowerRankings;
 
 // The Overall Power Rankings View
-export const vfflOverallPowerRankings = vffl.table("overall_power_rankings", {
-  id: serial("id").primaryKey(),
-  seasonYear: integer("season_year").notNull(),
-  leagueId: integer("league_id").notNull(), 
-  week: integer("week").notNull(),
-  managerId: integer("manager_id").notNull().references(() => vfflManagers.id),
+export const vfflVwOverallPowerRankings = vffl.view("vw_overall_power_rankings", {
+  seasonYear: integer("season_year"),
+  leagueId: integer("league_id"), 
+  week: integer("week"),
+  managerId: integer("manager_id"),
   
   // Weekly Metrics
   wkApWins: integer("wk_ap_wins"),
@@ -236,7 +241,14 @@ export const vfflOverallPowerRankings = vffl.table("overall_power_rankings", {
   stdPowerScore: real("std_power_score"),
   stdPowerRank: integer("std_power_rank"),
   stdRankDiff: integer("std_rank_diff"),
-});
+
+  // UI Display Columns
+  leagueName: varchar("league_name", { length: 255 }),
+  managerName: text("manager_name"),
+  teamName: varchar("team_name", { length: 255 }),
+}).existing();
+
+export const vfflOverallPowerRankings = vfflVwOverallPowerRankings;
 
 // The Transactions Table
 export const vfflTransactions = vffl.table("transactions", {

@@ -10,7 +10,7 @@ def main():
     Delegates to vffl_weekly_pipeline.py (Tier 3 Weekly Cutover Pipeline),
     which unifies league rollover (vffl.leagues, vffl.managers, vffl.teams,
     vffl.players, vffl.sos) with completed-week finalization (vffl.player_stats,
-    vffl.matchups, vffl.division_power_rankings, vffl.overall_power_rankings).
+    vffl.matchups).
     """
     command = [sys.executable, "vffl_weekly_pipeline.py"] + sys.argv[1:]
     try:
