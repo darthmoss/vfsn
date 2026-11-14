@@ -74,7 +74,7 @@ export default function DivisionToggle({
                 ? "var(--nav-highlight, var(--vfsn-accent-1))"
                 : "rgba(0, 0, 0, 0.25)",
               color: isActive
-                ? "var(--nav-background, #0A0A0C)"
+                ? "var(--nav-background, var(--vfsn-surface))"
                 : "var(--nav-text, var(--vfsn-text))",
               opacity: isActive ? 1 : 0.8,
             }}

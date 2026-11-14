@@ -298,11 +298,15 @@ WITH
     power_scores AS (
         SELECT
             zs.*,
-            (
-                (zs.wk_ap_z * 0.45::double precision) + (zs.wk_act_z * 0.30::double precision) + (zs.wk_eff_z * 0.10::double precision) + (zs.wk_perf_z * 0.10::double precision) + (zs.wk_opt_z * 0.05::double precision)
+            85.0::double precision + (
+                (
+                    (zs.wk_ap_z * 0.45::double precision) + (zs.wk_act_z * 0.30::double precision) + (zs.wk_eff_z * 0.10::double precision) + (zs.wk_perf_z * 0.10::double precision) + (zs.wk_opt_z * 0.05::double precision)
+                ) * 8.0::double precision
             ) AS wk_power_score,
-            (
-                (zs.std_ap_z * 0.45::double precision) + (zs.std_act_z * 0.30::double precision) + (zs.std_eff_z * 0.10::double precision) + (zs.std_perf_z * 0.10::double precision) + (zs.std_opt_z * 0.05::double precision)
+            85.0::double precision + (
+                (
+                    (zs.std_ap_z * 0.45::double precision) + (zs.std_act_z * 0.30::double precision) + (zs.std_eff_z * 0.10::double precision) + (zs.std_perf_z * 0.10::double precision) + (zs.std_opt_z * 0.05::double precision)
+                ) * 8.0::double precision
             ) AS std_power_score
         FROM
             z_scores zs
@@ -535,11 +539,16 @@ SELECT
     )::integer AS std_rank_diff,
     l.name AS league_name,
     (m.first_name || ' ') || "left" (m.last_name, 1) AS manager_name,
-    t.team_name
+    t.team_name,
+    st.standing
 FROM
     combined_rankings cr
     JOIN vffl.leagues l ON cr.league_id = l.league_id
     JOIN vffl.managers m ON cr.manager_id = m.id
     LEFT JOIN vffl.teams t ON cr.manager_id = t.manager_id
     AND cr.league_id = t.league_id
-    AND cr.season_year = t.season_year;
+    AND cr.season_year = t.season_year
+    LEFT JOIN vffl.vw_standings st ON cr.season_year = st.season_year
+    AND cr.league_id = st.league_id
+    AND cr.week = st.week
+    AND cr.manager_id = st.manager_id;

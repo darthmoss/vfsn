@@ -195,6 +195,7 @@ export const vfflVwDivPowerRankings = vffl.view("vw_div_power_rankings", {
   leagueName: varchar("league_name", { length: 255 }),
   managerName: text("manager_name"),
   teamName: varchar("team_name", { length: 255 }),
+  standing: integer("standing"),
 }).existing();
 
 export const vfflDivisionPowerRankings = vfflVwDivPowerRankings;
@@ -246,6 +247,7 @@ export const vfflVwOverallPowerRankings = vffl.view("vw_overall_power_rankings",
   leagueName: varchar("league_name", { length: 255 }),
   managerName: text("manager_name"),
   teamName: varchar("team_name", { length: 255 }),
+  standing: integer("standing"),
 }).existing();
 
 export const vfflOverallPowerRankings = vfflVwOverallPowerRankings;
