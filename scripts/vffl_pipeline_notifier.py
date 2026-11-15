@@ -98,14 +98,44 @@ def format_ts_et(dt_utc):
     return et_str, utc_str
 
 
-def send_ntfy_notification(title, message, priority="default", tags="calendar"):
-    """Send push notification via ntfy.sh using the established requests package."""
-    topic = os.getenv("NTFY_TOPIC", "").strip()
-    server_url = os.getenv("NTFY_SERVER", "https://ntfy.sh").strip().rstrip("/")
+def normalize_ntfy_config(raw_topic, raw_server):
+    """
+    Normalize NTFY_TOPIC and NTFY_SERVER so that even if NTFY_TOPIC was configured
+    as a full URL (e.g. 'https://ntfy.sh/my-topic' or 'ntfy.sh/my-topic'),
+    it resolves cleanly to (server_url, topic).
+    """
+    server_url = (raw_server or "https://ntfy.sh").strip().rstrip("/")
+    topic = (raw_topic or "").strip()
 
     if not topic:
-        print("Notice: NTFY_TOPIC is not set. Skipping ntfy.sh push notification.")
-        return
+        return server_url, ""
+
+    if topic.startswith(("http://", "https://")):
+        parts = topic.rstrip("/").rsplit("/", 1)
+        if len(parts) == 2 and parts[1]:
+            server_url, topic = parts[0], parts[1]
+    elif topic.lower().startswith("ntfy.sh/"):
+        topic = topic.split("/", 1)[1]
+
+    topic = topic.strip("/")
+    return server_url, topic
+
+
+def send_ntfy_notification(title, message, priority="default", tags="calendar"):
+    """
+    Send push notification via ntfy.sh using the established requests package.
+    Returns a human-readable status string for the GitHub Step Summary table.
+    """
+    raw_topic = os.getenv("NTFY_TOPIC", "")
+    raw_server = os.getenv("NTFY_SERVER", "https://ntfy.sh")
+    server_url, topic = normalize_ntfy_config(raw_topic, raw_server)
+
+    if not topic:
+        msg = "NTFY_TOPIC is not set in GitHub Secrets/Variables or .env.local. Skipping ntfy.sh push notification."
+        print(f"Notice: {msg}")
+        if os.getenv("GITHUB_ACTIONS") == "true":
+            print(f"::warning title=ntfy.sh Notification Skipped::{msg}")
+        return "⚠️ Skipped (`NTFY_TOPIC` not set)"
 
     url = f"{server_url}/{topic}"
     headers = {
@@ -122,8 +152,13 @@ def send_ntfy_notification(title, message, priority="default", tags="calendar"):
         resp = requests.post(url, data=message.encode("utf-8"), headers=headers, timeout=10)
         resp.raise_for_status()
         print(f"SUCCESS: Sent ntfy notification '{title}' to topic '{topic}'.")
+        return "✅ Delivered via `ntfy.sh`"
     except Exception as exc:
-        print(f"WARNING: Failed to send ntfy notification ({exc}). Continuing pipeline.")
+        err_msg = f"Failed to send ntfy notification to {server_url} ({exc}). Continuing pipeline."
+        print(f"WARNING: {err_msg}")
+        if os.getenv("GITHUB_ACTIONS") == "true":
+            print(f"::warning title=ntfy.sh Notification Failed::{err_msg}")
+        return f"❌ Failed (`{type(exc).__name__}`)"
 
 
 def write_github_summary(
@@ -136,6 +171,7 @@ def write_github_summary(
     delay_seconds,
     end_utc=None,
     job_status="RUNNING",
+    ntfy_status="—",
 ):
     """Write or update the Markdown timing table in $GITHUB_STEP_SUMMARY."""
     summary_path = os.getenv("GITHUB_STEP_SUMMARY", "").strip()
@@ -194,7 +230,8 @@ def write_github_summary(
         f"| **Actual Runner Start** | {start_cell} |\n"
         f"| **GitHub Cron Delay** | {delay_badge} |\n"
         f"| **Completed At** | {end_cell} |\n"
-        f"| **Total Runtime** | {duration_cell} |\n\n"
+        f"| **Total Runtime** | {duration_cell} |\n"
+        f"| **Push Notification** | {ntfy_status} |\n\n"
     )
 
     try:
@@ -266,7 +303,7 @@ def main():
             lines.append(f"Trigger:         {event_name}")
 
         message = "\n".join(lines)
-        send_ntfy_notification(title, message, priority=priority, tags=tags)
+        ntfy_status = send_ntfy_notification(title, message, priority=priority, tags=tags)
         write_github_summary(
             tier_name=tier_name,
             phase="start",
@@ -275,6 +312,7 @@ def main():
             scheduled_utc=scheduled_utc,
             actual_start_utc=actual_start_utc,
             delay_seconds=delay_seconds,
+            ntfy_status=ntfy_status,
         )
 
     elif phase == "end":
@@ -302,7 +340,7 @@ def main():
             f"Total Runtime:   {runtime_str}",
         ]
         message = "\n".join(lines)
-        send_ntfy_notification(title, message, priority=priority, tags=tags)
+        ntfy_status = send_ntfy_notification(title, message, priority=priority, tags=tags)
         write_github_summary(
             tier_name=tier_name,
             phase="end",
@@ -313,6 +351,7 @@ def main():
             delay_seconds=delay_seconds,
             end_utc=end_utc,
             job_status=status_upper,
+            ntfy_status=ntfy_status,
         )
     else:
         print(f"Error: Unknown phase '{phase}'. Expected 'start' or 'end'.")
