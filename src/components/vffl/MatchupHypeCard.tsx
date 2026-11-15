@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { vfflMatchups, vfflVwMatchupHype } from "@/db/schema";
 import type { InferSelectModel } from "@/app/vffl/current-week/mockData";
 import {
@@ -62,6 +63,21 @@ export default function MatchupHypeCard({
   const awayScoreDisplay = (matchup.awayScore ?? 0).toFixed(2);
   const homeProjDisplay = (matchup.homeProjected ?? 0).toFixed(2);
   const awayProjDisplay = (matchup.awayProjected ?? 0).toFixed(2);
+
+  const divisionParam = matchup.leagueName?.includes("Black")
+    ? "Black Division"
+    : "Red Division";
+  const boxScoreQuery = new URLSearchParams({ division: divisionParam });
+  if (matchup.seasonYear !== null && matchup.seasonYear !== undefined) {
+    boxScoreQuery.set("season", String(matchup.seasonYear));
+  }
+  if (matchup.week !== null && matchup.week !== undefined) {
+    boxScoreQuery.set("week", String(matchup.week));
+  }
+  if (matchup.matchupId !== null && matchup.matchupId !== undefined) {
+    boxScoreQuery.set("matchupId", String(matchup.matchupId));
+  }
+  const boxScoreHref = `/vffl/box-score?${boxScoreQuery.toString()}`;
 
   return (
     <article
@@ -130,11 +146,11 @@ export default function MatchupHypeCard({
           </span>
         </div>
 
-        {/* CENTER BROADCAST VS DIVIDER */}
-        <div className="flex flex-col items-center justify-center gap-2 self-stretch">
+        {/* CENTER BROADCAST VS DIVIDER & FULL BOX SCORE CTA */}
+        <div className="flex flex-col items-center justify-between gap-2 self-stretch">
           <div className="w-px flex-1 bg-[var(--vfsn-border)]" />
           <div
-            className="w-9 h-9 rounded-full border border-[var(--vfsn-border)] flex items-center justify-center text-[11px] font-black tracking-widest uppercase shadow-md"
+            className="w-9 h-9 rounded-full border border-[var(--vfsn-border)] flex items-center justify-center text-[11px] font-black tracking-widest uppercase shadow-md shrink-0"
             style={{
               backgroundColor: "rgba(0, 0, 0, 0.25)",
               color: "var(--nav-text, var(--vfsn-accent-2))",
@@ -143,6 +159,30 @@ export default function MatchupHypeCard({
             VS
           </div>
           <div className="w-px flex-1 bg-[var(--vfsn-border)]" />
+          <Link
+            href={boxScoreHref}
+            className="group px-3 py-1.5 rounded-lg border border-[var(--vfsn-border)] flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[0.14em] whitespace-nowrap shadow-md transition-all duration-200 hover:-translate-y-0.5 hover:brightness-110 shrink-0"
+            style={{
+              backgroundColor: "var(--nav-highlight, var(--vfsn-accent-1))",
+              color: "var(--nav-background, var(--vfsn-surface))",
+            }}
+          >
+            <span>Full Box Score</span>
+            <svg
+              className="w-3 h-3 transition-transform duration-200 group-hover:translate-x-0.5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2.5}
+                d="M9 5l7 7-7 7"
+              />
+            </svg>
+          </Link>
         </div>
 
         {/* AWAY TEAM (RIGHT) - Strict 1..6 Top-to-Bottom Stack */}
