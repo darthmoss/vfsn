@@ -1,4 +1,4 @@
-import { pgSchema, serial, integer, varchar, boolean, text, real, timestamp, pgView } from "drizzle-orm/pg-core"; 
+import { pgSchema, serial, integer, varchar, boolean, text, real, timestamp, pgView, jsonb } from "drizzle-orm/pg-core"; 
 
 // -----------------------------------------------------------------------------
 // 1. VFFL: Victra Fantasy Football League
@@ -625,6 +625,51 @@ export const vfflVwMatchupRanking = vffl.view("vw_matchup_ranking", {
   stakesRank: integer("stakes_rank"),
   shootoutRank: integer("shootout_rank"),
 }).existing();
+
+// Weekly H2H Recaps JSONB Payload Types & Table
+export interface WeeklyRecapMatchupJson {
+  matchupId: number;
+  matchupRank?: number | null;
+  matchupTitle?: string | null;
+  winningTeam: string;
+  winningManager?: string;
+  winningMgr?: string;
+  winningScore: number;
+  losingTeam: string;
+  losingManager?: string;
+  losingMgr?: string;
+  losingScore: number;
+  margin?: number;
+  introParagraph: string;
+  winnerParagraph: string;
+  loserParagraph: string;
+}
+
+export interface WeeklyRecapDivisionJson {
+  leagueName: string;
+  matchups: WeeklyRecapMatchupJson[];
+  weeklyPropsCommentary: string;
+  standingsCommentary: string;
+  powerRankingsCommentary: string;
+}
+
+export interface WeeklyRecapJson {
+  seasonYear: number;
+  week: number;
+  intro: string[] | string;
+  redDivision: WeeklyRecapDivisionJson;
+  blackDivision: WeeklyRecapDivisionJson;
+  outro: string;
+}
+
+export const vfflWeeklyRecaps = vffl.table("weekly_recaps", {
+  id: serial("id").primaryKey(),
+  seasonYear: integer("season_year").notNull(),
+  week: integer("week").notNull(),
+  recapJson: jsonb("recap_json").$type<WeeklyRecapJson>().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
 
 // -----------------------------------------------------------------------------
 // 2. NCAA: Pick-10 Challenge
