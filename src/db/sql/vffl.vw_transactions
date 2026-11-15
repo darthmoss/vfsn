@@ -66,7 +66,6 @@ SELECT
 FROM
     vffl.transactions t
     JOIN vffl.leagues l ON t.league_id = l.league_id
-    AND t.season_year = l.season_year
     JOIN vffl.managers m ON t.manager_id = m.id
     LEFT JOIN vffl.teams tm ON t.manager_id = tm.manager_id
     AND t.league_id = tm.league_id

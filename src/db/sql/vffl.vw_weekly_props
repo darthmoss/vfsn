@@ -456,7 +456,6 @@ SELECT
 FROM
     award_winners aw
     JOIN vffl.leagues l ON aw.league_id = l.league_id
-    AND aw.season_year = l.season_year
     LEFT JOIN vffl.managers m ON aw.manager_id = m.id
     LEFT JOIN vffl.teams t ON aw.manager_id = t.manager_id
     AND aw.league_id = t.league_id
