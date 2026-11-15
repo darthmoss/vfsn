@@ -128,6 +128,14 @@ def main():
             [sys.executable, "vffl_box_scores_extractor.py", year, str(current_week)]
         )
 
+    # Phase 7: Automated H2H Weekly Recap Generation & Upsert
+    # Extracts finalized completed_week views (vw_matchups, vw_matchup_rosters, vw_weekly_props,
+    # vw_standings, vw_div_power_rankings), generates the 10-section ESPN-style H2H recap via Gemini API,
+    # validates all 200 starter citations, and upserts into vffl.weekly_recaps.
+    pipeline_scripts.append(
+        [sys.executable, "vffl_weekly_recap_helper.py", "generate", year, completed_week]
+    )
+
     for command in pipeline_scripts:
         run_step(command)
 
