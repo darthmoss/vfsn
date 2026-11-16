@@ -1,12 +1,6 @@
 name: "Tier 3 - Weekly Cutover & Finalization"
 
 on:
-  schedule:
-    # Tuesdays at 3:47 AM EST / 4:47 AM EDT (08:47 UTC) during NFL season months (Sep-Dec, Jan)
-    # Scheduled right after ESPN's ~3:30 AM ET weekly rollover with an off-peak minute (:47)
-    # to provide a multi-hour buffer against GitHub Actions cron queue delays before Tuesday morning.
-    - cron: "47 8 * 9-12,1 2"
-
   workflow_dispatch:
     inputs:
       year:
@@ -35,7 +29,6 @@ jobs:
       ESPN_SWID: ${{ secrets.ESPN_SWID }}
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
-      GITHUB_CRON_SCHEDULE: ${{ github.event.schedule }}
       GITHUB_EVENT_NAME: ${{ github.event_name }}
       GITHUB_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 

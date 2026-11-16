@@ -1,15 +1,6 @@
 name: "Tier 2 - Nightly Wire & Injury Sync"
 
 on:
-  schedule:
-    # 1. Nightly at 1:17 AM EST (06:17 UTC) during NFL season months (Sep-Dec, Jan)
-    - cron: "17 6 * 9-12,1 *"
-    # 2. Sunday Pre-Kickoff at 12:17 PM EST (17:17 UTC Sunday) — after 11:30 AM ET NFL Inactive Lists
-    - cron: "17 17 * 9-12,1 0"
-    # 3. Thursday & Monday Pre-Kickoff at 7:17 PM EST (00:17 UTC Fri/Tue) — after 6:45 PM ET Primetime Inactives
-    - cron: "17 0 * 9-12,1 5"
-    - cron: "17 0 * 9-12,1 2"
-
   workflow_dispatch:
     inputs:
       year:
@@ -37,7 +28,6 @@ jobs:
       ESPN_S2: ${{ secrets.ESPN_S2 }}
       ESPN_SWID: ${{ secrets.ESPN_SWID }}
       NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
-      GITHUB_CRON_SCHEDULE: ${{ github.event.schedule }}
       GITHUB_EVENT_NAME: ${{ github.event_name }}
       GITHUB_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
