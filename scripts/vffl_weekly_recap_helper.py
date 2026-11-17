@@ -733,10 +733,10 @@ def generate_and_load_recap(year, week):
         print("Error: GEMINI_API_KEY (or GOOGLE_API_KEY) is not set in .env.local or environment variables.")
         sys.exit(1)
 
-    primary_model = os.getenv("GEMINI_MODEL", "gemini-2.5-pro")
+    primary_model = os.getenv("GEMINI_MODEL", "gemini-3.1-pro-preview")
     models_to_try = [primary_model]
-    if "gemini-2.5-flash" not in models_to_try:
-        models_to_try.append("gemini-2.5-flash")
+    if "gemini-3.8-flash" not in models_to_try:
+        models_to_try.append("gemini-3.8-flash")
 
     temp_context_path = os.path.join(SCRIPT_DIR, f"recap_context_{year}_wk{week}.json")
     extract_context(year, week, temp_context_path)
