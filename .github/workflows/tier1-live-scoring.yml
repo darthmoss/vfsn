@@ -3,14 +3,6 @@ name: "Tier 1 - Live Game-Time Scoring"
 on:
   workflow_dispatch:
     inputs:
-      mode:
-        description: "Execution mode: 'loop' (poll every 10m during window) or 'once' (single run)"
-        required: false
-        default: "loop"
-        type: choice
-        options:
-          - loop
-          - once
       year:
         description: "Season year (optional, leave blank to auto-resolve from vffl.leagues)"
         required: false
@@ -27,9 +19,7 @@ concurrency:
 jobs:
   run-tier1-pipeline:
     runs-on: ubuntu-latest
-    # GitHub Actions allows up to 360 minutes (6 hours) per job.
-    # Our internal loop exits cleanly at 330 minutes (5.5 hours) or when the game window ends.
-    timeout-minutes: 350
+    timeout-minutes: 15
 
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
@@ -94,80 +84,16 @@ jobs:
         run: |
           python scripts/vffl_pipeline_notifier.py start "Tier 1 - Live Game-Time Scoring" "${{ steps.window_check.outputs.start_epoch }}"
 
-      - name: Execute Tier 1 Live Scoring (10-Minute Polling Loop)
+      - name: Execute Tier 1 (Live Game-Time Scoring) Pipeline
         if: steps.window_check.outputs.should_run == 'true'
         run: |
-          START_EPOCH=$(date +%s)
-          MAX_RUNTIME_SECONDS=$((330 * 60)) # 5.5 hours max per runner shift
-          MODE="${{ inputs.mode }}"
-          if [ -z "$MODE" ]; then MODE="loop"; fi
-
-          in_game_window() {
-            local d=$(TZ="America/New_York" date +%u)
-            local h=$(TZ="America/New_York" date +%-H)
-            local m=$(TZ="America/New_York" date +%-M)
-
-            # Thursday 6:45 PM - 12:30 AM ET
-            if [ "$d" -eq 4 ] && { [ "$h" -gt 18 ] || { [ "$h" -eq 18 ] && [ "$m" -ge 45 ]; }; }; then return 0; fi
-            if [ "$d" -eq 5 ] && [ "$h" -eq 0 ] && [ "$m" -le 30 ]; then return 0; fi
-
-            # Sunday 11:45 AM - 12:30 AM ET
-            if [ "$d" -eq 7 ] && { [ "$h" -gt 11 ] || { [ "$h" -eq 11 ] && [ "$m" -ge 45 ]; }; }; then return 0; fi
-            if [ "$d" -eq 1 ] && [ "$h" -eq 0 ] && [ "$m" -le 30 ]; then return 0; fi
-
-            # Monday 6:45 PM - 12:30 AM ET
-            if [ "$d" -eq 1 ] && { [ "$h" -gt 18 ] || { [ "$h" -eq 18 ] && [ "$m" -ge 45 ]; }; }; then return 0; fi
-            if [ "$d" -eq 2 ] && [ "$h" -eq 0 ] && [ "$m" -le 30 ]; then return 0; fi
-
-            return 1
-          }
-
-          run_pipeline() {
-            if [ -n "${{ inputs.year }}" ] && [ -n "${{ inputs.week }}" ]; then
-              python scripts/vffl_live_scoring_pipeline.py "${{ inputs.year }}" "${{ inputs.week }}"
-            elif [ -n "${{ inputs.year }}" ]; then
-              python scripts/vffl_live_scoring_pipeline.py "${{ inputs.year }}"
-            else
-              python scripts/vffl_live_scoring_pipeline.py
-            fi
-          }
-
-          # Single-run mode (if requested manually via workflow_dispatch)
-          if [ "$MODE" = "once" ]; then
-            echo "=== Running single pass of Tier 1 Live Scoring Pipeline ==="
-            run_pipeline
-            exit 0
+          if [ -n "${{ inputs.year }}" ] && [ -n "${{ inputs.week }}" ]; then
+            python scripts/vffl_live_scoring_pipeline.py "${{ inputs.year }}" "${{ inputs.week }}"
+          elif [ -n "${{ inputs.year }}" ]; then
+            python scripts/vffl_live_scoring_pipeline.py "${{ inputs.year }}"
+          else
+            python scripts/vffl_live_scoring_pipeline.py
           fi
-
-          # Continuous 10-minute polling loop mode
-          ITERATION=1
-          while true; do
-            echo ""
-            echo "=================================================================="
-            echo "Tier 1 Poll Iteration #$ITERATION — $(TZ='America/New_York' date)"
-            echo "=================================================================="
-
-            if ! run_pipeline; then
-              echo "WARNING: Iteration #$ITERATION encountered an error; will retry in 10 minutes."
-            fi
-
-            NOW_EPOCH=$(date +%s)
-            ELAPSED=$((NOW_EPOCH - START_EPOCH))
-
-            if [ "$ELAPSED" -ge "$MAX_RUNTIME_SECONDS" ]; then
-              echo "Reached 5.5-hour runner shift limit ($ELAPSED seconds). Handing off to next scheduled job."
-              break
-            fi
-
-            if ! in_game_window; then
-              echo "Active ET game window has ended ($(TZ='America/New_York' date)). Stopping Tier 1 polling loop."
-              break
-            fi
-
-            echo "Sleeping 10 minutes until next live scoring poll..."
-            sleep 600
-            ITERATION=$((ITERATION + 1))
-          done
 
       - name: Send Job End Notification & Finalize Timing Summary
         if: always() && steps.window_check.outputs.should_run == 'true'
