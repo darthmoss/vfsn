@@ -276,70 +276,70 @@ export default function BoxScoreTeamCard({
         color: "var(--nav-text, var(--vfsn-text))",
       }}
     >
-      {/* 3A. Detail Header (4-Column Flex Header inside the 50/50 box) */}
+      {/* 3A. Detail Header (2-Line Left Block + Right Actual Score) */}
       <header className="w-full flex flex-row items-center justify-between gap-4 pb-5 border-b border-[var(--vfsn-border)]">
-        {/* Col 1 (Left): #{Standing} {Team Name} */}
-        <div className="flex flex-col gap-1 min-w-0 flex-1">
-          {managerName && (
-            <span className="text-[10px] font-extrabold uppercase tracking-[0.16em] opacity-70">
-              {managerName}
-            </span>
-          )}
-          <h2
-            className="text-lg sm:text-xl font-black tracking-tight truncate"
-            style={{ color: "var(--nav-highlight, var(--vfsn-accent-1))" }}
-            title={`${formatStanding(standing)} ${teamName ?? "Team"}`}
-          >
-            <span
-              className="opacity-80 font-extrabold mr-1.5"
-              style={{ color: "var(--nav-text, var(--vfsn-text))" }}
-            >
-              {formatStanding(standing)}
-            </span>
-            {teamName ?? "Team"}
-          </h2>
-        </div>
-
-        {/* Col 2: Optimal Score with Efficiency % directly under it (dimmed/smaller text) */}
-        <div
-          className="rounded-xl border border-[var(--vfsn-border)] px-3.5 py-2 flex flex-row items-center gap-3 shrink-0"
-          style={{ backgroundColor: "rgba(0, 0, 0, 0.2)" }}
-        >
-          <span className="text-[9px] font-extrabold uppercase tracking-[0.14em] opacity-65">
-            Optimal
-          </span>
-          <div className="flex flex-col items-end justify-center">
-            <span className="text-sm font-black tabular-nums leading-tight">
-              {resolvedOptimal.toFixed(2)}
-            </span>
-            <span className="text-[10px] font-bold tabular-nums opacity-60 leading-tight">
-              {resolvedEffRatio.toFixed(1)}% EFF
-            </span>
-          </div>
-        </div>
-
-        {/* Col 3: Projected Score with +/- directly under it */}
-        <div
-          className="rounded-xl border border-[var(--vfsn-border)] px-3.5 py-2 flex flex-row items-center gap-3 shrink-0"
-          style={{ backgroundColor: "rgba(0, 0, 0, 0.2)" }}
-        >
-          <span className="text-[9px] font-extrabold uppercase tracking-[0.14em] opacity-65">
-            Projected
-          </span>
-          <div className="flex flex-col items-end justify-center">
-            <span className="text-sm font-black tabular-nums leading-tight">
-              {resolvedProjected.toFixed(2)}
-            </span>
-            <span
-              className="text-[10px] font-extrabold tabular-nums leading-tight"
+        {/* Left Block: Line 1 = #{Standing} {Team Name} + Manager; Line 2 = Optimal + Projected */}
+        <div className="flex flex-col gap-2.5 min-w-0 flex-1">
+          <div className="flex flex-row items-baseline gap-2.5 min-w-0">
+            <h2
+              className="text-lg sm:text-xl font-black tracking-tight truncate"
               style={{ color: "var(--nav-highlight, var(--vfsn-accent-1))" }}
+              title={`${formatStanding(standing)} ${teamName ?? "Team"}`}
             >
-              {formatSignedDiff(projDiff)}
-            </span>
+              <span
+                className="opacity-80 font-extrabold mr-1.5"
+                style={{ color: "var(--nav-text, var(--vfsn-text))" }}
+              >
+                {formatStanding(standing)}
+              </span>
+              {teamName ?? "Team"}
+            </h2>
+            {managerName && (
+              <span className="text-[10px] font-extrabold uppercase tracking-[0.16em] opacity-70 shrink-0">
+                {managerName}
+              </span>
+            )}
+          </div>
+
+          <div className="flex flex-row items-center gap-3">
+            {/* Optimal Score with Efficiency % (single line) */}
+            <div
+              className="rounded-xl border border-[var(--vfsn-border)] px-3 py-1.5 flex flex-row items-baseline gap-2 shrink-0 whitespace-nowrap"
+              style={{ backgroundColor: "rgba(0, 0, 0, 0.2)" }}
+            >
+              <span className="text-[9px] font-extrabold uppercase tracking-[0.14em] opacity-65">
+                Optimal
+              </span>
+              <span className="text-sm font-black tabular-nums leading-none">
+                {resolvedOptimal.toFixed(2)}
+              </span>
+              <span className="text-[10px] font-bold tabular-nums opacity-60 leading-none">
+                {resolvedEffRatio.toFixed(1)}% EFF
+              </span>
+            </div>
+
+            {/* Projected Score with +/- (single line) */}
+            <div
+              className="rounded-xl border border-[var(--vfsn-border)] px-3 py-1.5 flex flex-row items-baseline gap-2 shrink-0 whitespace-nowrap"
+              style={{ backgroundColor: "rgba(0, 0, 0, 0.2)" }}
+            >
+              <span className="text-[9px] font-extrabold uppercase tracking-[0.14em] opacity-65">
+                Projected
+              </span>
+              <span className="text-sm font-black tabular-nums leading-none">
+                {resolvedProjected.toFixed(2)}
+              </span>
+              <span
+                className="text-[10px] font-extrabold tabular-nums leading-none"
+                style={{ color: "var(--nav-highlight, var(--vfsn-accent-1))" }}
+              >
+                {formatSignedDiff(projDiff)}
+              </span>
+            </div>
           </div>
         </div>
 
-        {/* Col 4 (Right): Actual total points (large, heavy font) */}
+        {/* Right: Actual total points (large, heavy font) */}
         <div className="flex flex-col items-end justify-center pl-2 shrink-0">
           <span
             className="text-2xl sm:text-3xl font-black tabular-nums tracking-tight leading-none"
