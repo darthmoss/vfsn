@@ -67,6 +67,19 @@ export default function WeeklyRecapToc({
   blackMatchups = [],
 }: WeeklyRecapTocProps) {
   const [activeId, setActiveId] = useState<string>("recap-intro");
+  const [expandedBoxScores, setExpandedBoxScores] = useState<
+    Record<"red" | "black", boolean>
+  >({
+    red: true,
+    black: true,
+  });
+
+  const toggleBoxScores = (division: "red" | "black") => {
+    setExpandedBoxScores((prev) => ({
+      ...prev,
+      [division]: !prev[division],
+    }));
+  };
 
   const allObservedIds = useMemo(() => {
     const ids: string[] = [];
@@ -248,54 +261,104 @@ export default function WeeklyRecapToc({
                     {section.children.map((sub) => {
                       const isBoxScoreSub =
                         prefix && sub.id === `${prefix}-box-scores`;
+                      const hasCollapsibleMatchups = Boolean(
+                        isBoxScoreSub && prefix && divisionMatchups.length > 0
+                      );
+                      const isBoxScoresExpanded = prefix
+                        ? expandedBoxScores[prefix]
+                        : true;
                       const isSubActive =
                         activeId === sub.id ||
                         Boolean(isBoxScoreSub && isMatchupActiveInDivision);
 
+                      const subPillStyle = isSubActive
+                        ? {
+                            backgroundColor:
+                              "var(--nav-highlight, var(--vfsn-accent-1))",
+                            color:
+                              "var(--nav-background, var(--vfsn-surface))",
+                          }
+                        : {
+                            backgroundColor: "rgba(0, 0, 0, 0.24)",
+                            color: "var(--nav-text, var(--vfsn-text))",
+                          };
+
                       return (
                         <li key={sub.id} className="flex flex-col gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => scrollToAnchor(sub.id)}
-                            className="w-full px-3 py-2 rounded-lg border border-[var(--vfsn-border)] text-left text-xs font-extrabold tracking-tight flex items-center justify-between gap-2 transition-colors cursor-pointer hover:bg-white/[0.05]"
-                            style={
-                              isSubActive
-                                ? {
-                                    backgroundColor:
-                                      "var(--nav-highlight, var(--vfsn-accent-1))",
-                                    color:
-                                      "var(--nav-background, var(--vfsn-surface))",
-                                  }
-                                : {
-                                    backgroundColor: "rgba(0, 0, 0, 0.24)",
-                                    color: "var(--nav-text, var(--vfsn-text))",
-                                  }
-                            }
-                          >
-                            <div className="flex items-center gap-2 min-w-0">
-                              <span
-                                className="w-1.5 h-1.5 rounded-full shrink-0"
-                                style={{
-                                  backgroundColor: isSubActive
-                                    ? "var(--nav-background, var(--vfsn-surface))"
-                                    : "var(--nav-highlight, var(--vfsn-accent-1))",
-                                }}
-                              />
-                              <span className="truncate">{sub.label}</span>
+                          {hasCollapsibleMatchups && prefix ? (
+                            <div
+                              className="w-full rounded-lg border border-[var(--vfsn-border)] flex items-center justify-between overflow-hidden transition-colors"
+                              style={subPillStyle}
+                            >
+                              <button
+                                type="button"
+                                onClick={() => scrollToAnchor(sub.id)}
+                                className="flex-1 min-w-0 px-3 py-2 text-left text-xs font-extrabold tracking-tight flex items-center gap-2 cursor-pointer transition-colors hover:bg-white/[0.05]"
+                              >
+                                <span
+                                  className="w-1.5 h-1.5 rounded-full shrink-0"
+                                  style={{
+                                    backgroundColor: isSubActive
+                                      ? "var(--nav-background, var(--vfsn-surface))"
+                                      : "var(--nav-highlight, var(--vfsn-accent-1))",
+                                  }}
+                                />
+                                <span className="truncate">{sub.label}</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                aria-expanded={isBoxScoresExpanded}
+                                aria-controls={`${prefix}-box-scores-list`}
+                                aria-label={`${
+                                  isBoxScoresExpanded ? "Collapse" : "Expand"
+                                } ${section.label} Box Scores`}
+                                title={
+                                  isBoxScoresExpanded
+                                    ? "Collapse Box Scores"
+                                    : "Expand Box Scores"
+                                }
+                                onClick={() => toggleBoxScores(prefix)}
+                                className="px-3 py-2 text-[10px] font-black opacity-75 hover:opacity-100 shrink-0 cursor-pointer transition-colors hover:bg-white/[0.08] border-l border-[var(--vfsn-border)]"
+                              >
+                                <span
+                                  className={`inline-block transition-transform duration-150 ${
+                                    isBoxScoresExpanded
+                                      ? "rotate-0"
+                                      : "-rotate-90"
+                                  }`}
+                                >
+                                  ▾
+                                </span>
+                              </button>
                             </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => scrollToAnchor(sub.id)}
+                              className="w-full px-3 py-2 rounded-lg border border-[var(--vfsn-border)] text-left text-xs font-extrabold tracking-tight flex items-center justify-between gap-2 transition-colors cursor-pointer hover:bg-white/[0.05]"
+                              style={subPillStyle}
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span
+                                  className="w-1.5 h-1.5 rounded-full shrink-0"
+                                  style={{
+                                    backgroundColor: isSubActive
+                                      ? "var(--nav-background, var(--vfsn-surface))"
+                                      : "var(--nav-highlight, var(--vfsn-accent-1))",
+                                  }}
+                                />
+                                <span className="truncate">{sub.label}</span>
+                              </div>
+                            </button>
+                          )}
 
-                            {isBoxScoreSub && divisionMatchups.length > 0 && (
-                              <span className="text-[10px] font-black opacity-75 shrink-0">
-                                ▾
-                              </span>
-                            )}
-                          </button>
-
-                          {/* Matchup Quick-Jump Sub-Pills Always Visible & Indented Under Box Scores */}
-                          {isBoxScoreSub &&
+                          {/* Matchup Quick-Jump Sub-Pills Indented Under Box Scores (Collapsible, Expanded by Default) */}
+                          {hasCollapsibleMatchups &&
                             prefix &&
-                            divisionMatchups.length > 0 && (
+                            isBoxScoresExpanded && (
                               <ul
+                                id={`${prefix}-box-scores-list`}
                                 className="ml-3 pl-2.5 border-l-2 border-[var(--vfsn-border)] flex flex-col gap-1"
                               >
                                 {divisionMatchups.map((m, idx) => {
