@@ -107,7 +107,7 @@ export default function StandingsTable({
 
   const isH2H = viewMode === "H2H";
   const isOverall = viewMode === "VFFL";
-  const totalCols = isH2H ? 12 : 11;
+  const totalCols = isH2H ? 13 : 11;
 
   const toggleRow = (rowKey: string) => {
     setExpandedKeys((prev) => ({
@@ -189,14 +189,15 @@ export default function StandingsTable({
           <colgroup>
             <col style={{ width: "5%" }} />
             <col style={{ width: "5%" }} />
-            <col style={{ width: isH2H ? "21%" : "23%" }} />
-            <col style={{ width: "7%" }} />
-            <col style={{ width: "7%" }} />
-            <col style={{ width: "7%" }} />
+            <col style={{ width: isH2H ? "19%" : "23%" }} />
+            <col style={{ width: isH2H ? "6%" : "7%" }} />
+            <col style={{ width: isH2H ? "6%" : "7%" }} />
+            <col style={{ width: isH2H ? "6%" : "7%" }} />
+            <col style={{ width: isH2H ? "8%" : "9%" }} />
+            {isH2H && <col style={{ width: "7%" }} />}
             <col style={{ width: "9%" }} />
             <col style={{ width: "9%" }} />
-            <col style={{ width: "9%" }} />
-            <col style={{ width: "9%" }} />
+            <col style={{ width: isH2H ? "8%" : "9%" }} />
             <col style={{ width: isH2H ? "8%" : "10%" }} />
             {isH2H && <col style={{ width: "4%" }} />}
           </colgroup>
@@ -218,9 +219,18 @@ export default function StandingsTable({
               <th className="py-3 px-2 text-center">W</th>
               <th className="py-3 px-2 text-center">L</th>
               <th className="py-3 px-2 text-center">T</th>
-              <th className="py-3 px-2 text-center border-r border-[var(--vfsn-border)]">
+              <th
+                className={`py-3 px-2 text-center ${
+                  isH2H ? "" : "border-r border-[var(--vfsn-border)]"
+                }`}
+              >
                 Win%
               </th>
+              {isH2H && (
+                <th className="py-3 px-2 text-center border-r border-[var(--vfsn-border)]">
+                  Streak
+                </th>
+              )}
               <th className="py-3 px-2 text-center">PF</th>
               <th className="py-3 px-2 text-center">PA</th>
               <th className="py-3 px-2 text-center">Diff</th>
@@ -259,6 +269,8 @@ export default function StandingsTable({
                 const standingDiff = row.standingDiff ?? 0;
                 const diffVal = row.diff ?? 0;
                 const avgDiffVal = row.avgDiff ?? 0;
+                const streakVal =
+                  "streak" in row && row.streak ? row.streak : "-";
 
                 const teamMatchups =
                   teamMatchupsMap[rowKey] ??
@@ -441,7 +453,9 @@ export default function StandingsTable({
 
                       {/* 7. wins_pct */}
                       <td
-                        className="py-3.5 px-2 text-center text-sm font-black tabular-nums whitespace-nowrap border-r border-[var(--vfsn-border)]"
+                        className={`py-3.5 px-2 text-center text-sm font-black tabular-nums whitespace-nowrap ${
+                          isH2H ? "" : "border-r border-[var(--vfsn-border)]"
+                        }`}
                         style={{
                           color: isBye
                             ? "var(--nav-highlight, var(--vfsn-accent-1))"
@@ -451,7 +465,39 @@ export default function StandingsTable({
                         {formatWinPct(row.winPct)}
                       </td>
 
-                      {/* 8. points_for */}
+                      {/* 8. streak (H2H View Only) */}
+                      {isH2H && (
+                        <td className="py-3.5 px-2 text-center whitespace-nowrap border-r border-[var(--vfsn-border)]">
+                          {streakVal.startsWith("W") ? (
+                            <span
+                              className="inline-flex items-center justify-center min-w-[36px] px-2 py-0.5 rounded-md text-[11px] font-black tabular-nums border border-[var(--vfsn-border)]"
+                              style={{
+                                backgroundColor: "rgba(0, 0, 0, 0.3)",
+                                color:
+                                  "var(--nav-highlight, var(--vfsn-accent-1))",
+                              }}
+                            >
+                              {streakVal}
+                            </span>
+                          ) : streakVal.startsWith("L") ? (
+                            <span
+                              className="inline-flex items-center justify-center min-w-[36px] px-2 py-0.5 rounded-md text-[11px] font-bold tabular-nums opacity-75 border border-[var(--vfsn-border)]"
+                              style={{
+                                backgroundColor: "rgba(0, 0, 0, 0.3)",
+                                color: "var(--nav-text, var(--vfsn-text))",
+                              }}
+                            >
+                              {streakVal}
+                            </span>
+                          ) : (
+                            <span className="text-xs font-bold opacity-50 tabular-nums">
+                              {streakVal}
+                            </span>
+                          )}
+                        </td>
+                      )}
+
+                      {/* 9. points_for */}
                       <td
                         className="py-3.5 px-2 text-center text-sm font-black tabular-nums whitespace-nowrap"
                         style={{

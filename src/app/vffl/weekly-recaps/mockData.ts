@@ -507,6 +507,7 @@ export const MOCK_RED_STANDINGS: StandingsRow[] = [
     leagueName: "VFFL - Red Division",
     managerName: "Aimee G",
     teamName: "Aimee's Astounding Team",
+    streak: "W3",
   },
   {
     seasonYear: 2026,
@@ -526,6 +527,7 @@ export const MOCK_RED_STANDINGS: StandingsRow[] = [
     leagueName: "VFFL - Red Division",
     managerName: "Nick G",
     teamName: "Chiefin’ Ain’t Easy",
+    streak: "W2",
   },
   {
     seasonYear: 2026,
@@ -545,6 +547,7 @@ export const MOCK_RED_STANDINGS: StandingsRow[] = [
     leagueName: "VFFL - Red Division",
     managerName: "Camden V",
     teamName: "The Price is Right",
+    streak: "W1",
   },
   {
     seasonYear: 2026,
@@ -564,6 +567,7 @@ export const MOCK_RED_STANDINGS: StandingsRow[] = [
     leagueName: "VFFL - Red Division",
     managerName: "Eric C",
     teamName: "Per My Last Touchdown",
+    streak: "W1",
   },
   {
     seasonYear: 2026,
@@ -583,6 +587,7 @@ export const MOCK_RED_STANDINGS: StandingsRow[] = [
     leagueName: "VFFL - Red Division",
     managerName: "Rhonda B",
     teamName: "Griddy in the City",
+    streak: "L1",
   },
   {
     seasonYear: 2026,
@@ -602,6 +607,7 @@ export const MOCK_RED_STANDINGS: StandingsRow[] = [
     leagueName: "VFFL - Red Division",
     managerName: "jay s",
     teamName: "Kenosha Kickers",
+    streak: "L1",
   },
   {
     seasonYear: 2026,
@@ -621,6 +627,7 @@ export const MOCK_RED_STANDINGS: StandingsRow[] = [
     leagueName: "VFFL - Red Division",
     managerName: "Philip C",
     teamName: "Philthy Animals",
+    streak: "W1",
   },
   {
     seasonYear: 2026,
@@ -640,6 +647,7 @@ export const MOCK_RED_STANDINGS: StandingsRow[] = [
     leagueName: "VFFL - Red Division",
     managerName: "Matt M",
     teamName: "Molasses Jones",
+    streak: "W1",
   },
   {
     seasonYear: 2026,
@@ -659,6 +667,7 @@ export const MOCK_RED_STANDINGS: StandingsRow[] = [
     leagueName: "VFFL - Red Division",
     managerName: "Abigail C",
     teamName: "Cooper’s Troopers",
+    streak: "L2",
   },
   {
     seasonYear: 2026,
@@ -678,6 +687,7 @@ export const MOCK_RED_STANDINGS: StandingsRow[] = [
     leagueName: "VFFL - Red Division",
     managerName: "Luke H",
     teamName: "Team Huffman",
+    streak: "L3",
   },
 ];
 
@@ -700,6 +710,7 @@ export const MOCK_BLACK_STANDINGS: StandingsRow[] = [
     leagueName: "VFFL - Black Division",
     managerName: "Lauren B",
     teamName: "Sunday Scaries and Chardonnay",
+    streak: "W4",
   },
   {
     seasonYear: 2026,
@@ -719,6 +730,7 @@ export const MOCK_BLACK_STANDINGS: StandingsRow[] = [
     leagueName: "VFFL - Black Division",
     managerName: "Cameron C",
     teamName: "Cameron Callahan",
+    streak: "W2",
   },
   {
     seasonYear: 2026,
@@ -738,6 +750,7 @@ export const MOCK_BLACK_STANDINGS: StandingsRow[] = [
     leagueName: "VFFL - Black Division",
     managerName: "Brian H",
     teamName: "Brian's DG Dawgs",
+    streak: "L1",
   },
   {
     seasonYear: 2026,
@@ -757,6 +770,7 @@ export const MOCK_BLACK_STANDINGS: StandingsRow[] = [
     leagueName: "VFFL - Black Division",
     managerName: "Emily K",
     teamName: "Emily's Empire",
+    streak: "W2",
   },
   {
     seasonYear: 2026,
@@ -776,6 +790,7 @@ export const MOCK_BLACK_STANDINGS: StandingsRow[] = [
     leagueName: "VFFL - Black Division",
     managerName: "Clarissa h",
     teamName: "Clarissa's Cool Team",
+    streak: "W1",
   },
   {
     seasonYear: 2026,
@@ -795,6 +810,7 @@ export const MOCK_BLACK_STANDINGS: StandingsRow[] = [
     leagueName: "VFFL - Black Division",
     managerName: "Matt M",
     teamName: "Gover the Goal Line",
+    streak: "L1",
   },
   {
     seasonYear: 2026,
@@ -814,6 +830,7 @@ export const MOCK_BLACK_STANDINGS: StandingsRow[] = [
     leagueName: "VFFL - Black Division",
     managerName: "Tim P",
     teamName: "The Kobayashi Maru",
+    streak: "L2",
   },
   {
     seasonYear: 2026,
@@ -833,6 +850,7 @@ export const MOCK_BLACK_STANDINGS: StandingsRow[] = [
     leagueName: "VFFL - Black Division",
     managerName: "Greg R",
     teamName: "Greg's Great Team",
+    streak: "L1",
   },
   {
     seasonYear: 2026,
@@ -852,6 +870,7 @@ export const MOCK_BLACK_STANDINGS: StandingsRow[] = [
     leagueName: "VFFL - Black Division",
     managerName: "Allen K",
     teamName: "Dirty Birds Special",
+    streak: "W1",
   },
   {
     seasonYear: 2026,
@@ -871,6 +890,7 @@ export const MOCK_BLACK_STANDINGS: StandingsRow[] = [
     leagueName: "VFFL - Black Division",
     managerName: "Nathan R",
     teamName: "Purple Reign",
+    streak: "L4",
   },
 ];
 

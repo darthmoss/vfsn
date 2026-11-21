@@ -18,11 +18,21 @@ WITH
             CASE
                 WHEN matchups.home_score = matchups.away_score THEN 1
                 ELSE 0
-            END AS wk_ties
+            END AS wk_ties,
+            CASE
+                WHEN matchups.home_score > matchups.away_score THEN 'W'
+                WHEN matchups.home_score < matchups.away_score THEN 'L'
+                ELSE 'T'
+            END AS outcome
         FROM
             vffl.matchups
+            JOIN vffl.leagues l ON matchups.league_id = l.league_id
         WHERE
             matchups.home_score IS NOT NULL
+            AND (
+                matchups.season_year < l.season_year
+                OR matchups.week < l.current_week
+            )
         UNION ALL
         SELECT
             matchups.season_year,
@@ -42,61 +52,112 @@ WITH
             CASE
                 WHEN matchups.away_score = matchups.home_score THEN 1
                 ELSE 0
-            END AS wk_ties
+            END AS wk_ties,
+            CASE
+                WHEN matchups.away_score > matchups.home_score THEN 'W'
+                WHEN matchups.away_score < matchups.home_score THEN 'L'
+                ELSE 'T'
+            END AS outcome
         FROM
             vffl.matchups
+            JOIN vffl.leagues l ON matchups.league_id = l.league_id
         WHERE
             matchups.away_score IS NOT NULL
             AND matchups.away_manager_id IS NOT NULL
+            AND (
+                matchups.season_year < l.season_year
+                OR matchups.week < l.current_week
+            )
     ),
-    cumulative_outcomes AS (
+    streak_groups AS (
         SELECT
             team_games.season_year,
             team_games.league_id,
             team_games.week,
             team_games.manager_id,
-            sum(team_games.wk_wins) OVER (
+            team_games.pf,
+            team_games.pa,
+            team_games.wk_wins,
+            team_games.wk_losses,
+            team_games.wk_ties,
+            team_games.outcome,
+            row_number() OVER (
                 PARTITION BY
-                    team_games.season_year,
                     team_games.league_id,
                     team_games.manager_id
                 ORDER BY
-                    team_games.week
-            ) AS wins,
-            sum(team_games.wk_losses) OVER (
-                PARTITION BY
                     team_games.season_year,
-                    team_games.league_id,
-                    team_games.manager_id
-                ORDER BY
                     team_games.week
-            ) AS losses,
-            sum(team_games.wk_ties) OVER (
+            ) - row_number() OVER (
                 PARTITION BY
-                    team_games.season_year,
                     team_games.league_id,
-                    team_games.manager_id
+                    team_games.manager_id,
+                    team_games.outcome
                 ORDER BY
-                    team_games.week
-            ) AS ties,
-            sum(team_games.pf) OVER (
-                PARTITION BY
                     team_games.season_year,
-                    team_games.league_id,
-                    team_games.manager_id
-                ORDER BY
                     team_games.week
-            ) AS points_for,
-            sum(team_games.pa) OVER (
-                PARTITION BY
-                    team_games.season_year,
-                    team_games.league_id,
-                    team_games.manager_id
-                ORDER BY
-                    team_games.week
-            ) AS points_against
+            ) AS streak_group
         FROM
             team_games
+    ),
+    cumulative_outcomes AS (
+        SELECT
+            streak_groups.season_year,
+            streak_groups.league_id,
+            streak_groups.week,
+            streak_groups.manager_id,
+            sum(streak_groups.wk_wins) OVER (
+                PARTITION BY
+                    streak_groups.season_year,
+                    streak_groups.league_id,
+                    streak_groups.manager_id
+                ORDER BY
+                    streak_groups.week
+            ) AS wins,
+            sum(streak_groups.wk_losses) OVER (
+                PARTITION BY
+                    streak_groups.season_year,
+                    streak_groups.league_id,
+                    streak_groups.manager_id
+                ORDER BY
+                    streak_groups.week
+            ) AS losses,
+            sum(streak_groups.wk_ties) OVER (
+                PARTITION BY
+                    streak_groups.season_year,
+                    streak_groups.league_id,
+                    streak_groups.manager_id
+                ORDER BY
+                    streak_groups.week
+            ) AS ties,
+            sum(streak_groups.pf) OVER (
+                PARTITION BY
+                    streak_groups.season_year,
+                    streak_groups.league_id,
+                    streak_groups.manager_id
+                ORDER BY
+                    streak_groups.week
+            ) AS points_for,
+            sum(streak_groups.pa) OVER (
+                PARTITION BY
+                    streak_groups.season_year,
+                    streak_groups.league_id,
+                    streak_groups.manager_id
+                ORDER BY
+                    streak_groups.week
+            ) AS points_against,
+            streak_groups.outcome || row_number() OVER (
+                PARTITION BY
+                    streak_groups.league_id,
+                    streak_groups.manager_id,
+                    streak_groups.outcome,
+                    streak_groups.streak_group
+                ORDER BY
+                    streak_groups.season_year,
+                    streak_groups.week
+            ) AS streak
+        FROM
+            streak_groups
     ),
     ranked_standings AS (
         SELECT
@@ -145,7 +206,8 @@ WITH
                         )::numeric
                     ) DESC,
                     cumulative_outcomes.points_for DESC
-            ) AS standing
+            ) AS standing,
+            cumulative_outcomes.streak
         FROM
             cumulative_outcomes
     ),
@@ -163,7 +225,8 @@ WITH
             0.0::real AS points_against,
             0.0::real AS diff,
             0.0::real AS avg_diff,
-            baseline_standings.standing::bigint AS standing
+            baseline_standings.standing::bigint AS standing,
+            NULL::text AS streak
         FROM
             vffl.baseline_standings
     ),
@@ -181,7 +244,8 @@ WITH
             ranked_standings.points_against,
             ranked_standings.diff,
             ranked_standings.avg_diff,
-            ranked_standings.standing
+            ranked_standings.standing,
+            ranked_standings.streak
         FROM
             ranked_standings
         UNION ALL
@@ -198,7 +262,8 @@ WITH
             baseline.points_against,
             baseline.diff,
             baseline.avg_diff,
-            baseline.standing
+            baseline.standing,
+            baseline.streak
         FROM
             baseline
     )
@@ -228,7 +293,19 @@ SELECT
     )::integer AS standing_diff,
     l.name AS league_name,
     (m.first_name || ' ') || "left" (m.last_name, 1) AS manager_name,
-    t.team_name
+    t.team_name,
+    COALESCE(
+        cs.streak,
+        lag (cs.streak) OVER (
+            PARTITION BY
+                cs.league_id,
+                cs.manager_id
+            ORDER BY
+                cs.season_year,
+                cs.week
+        ),
+        '-'::text
+    ) AS streak
 FROM
     combined_standings cs
     JOIN vffl.leagues l ON cs.league_id = l.league_id

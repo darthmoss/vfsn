@@ -144,6 +144,7 @@ export const vfflVwStandings = vffl.view("vw_standings", {
   leagueName: varchar("league_name", { length: 255 }),
   managerName: text("manager_name"),
   teamName: varchar("team_name", { length: 255 }),
+  streak: text("streak"),
 }).existing();
 
 export const vfflStandings = vfflVwStandings;
