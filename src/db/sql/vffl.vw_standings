@@ -26,13 +26,8 @@ WITH
             END AS outcome
         FROM
             vffl.matchups
-            JOIN vffl.leagues l ON matchups.league_id = l.league_id
         WHERE
             matchups.home_score IS NOT NULL
-            AND (
-                matchups.season_year < l.season_year
-                OR matchups.week < l.current_week
-            )
         UNION ALL
         SELECT
             matchups.season_year,
@@ -60,14 +55,9 @@ WITH
             END AS outcome
         FROM
             vffl.matchups
-            JOIN vffl.leagues l ON matchups.league_id = l.league_id
         WHERE
             matchups.away_score IS NOT NULL
             AND matchups.away_manager_id IS NOT NULL
-            AND (
-                matchups.season_year < l.season_year
-                OR matchups.week < l.current_week
-            )
     ),
     streak_groups AS (
         SELECT

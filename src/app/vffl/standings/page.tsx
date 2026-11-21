@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, lte, max } from "drizzle-orm";
+import { and, asc, desc, eq, gt, lte } from "drizzle-orm";
 import { db } from "@/db";
 import {
   vfflDivAllPlayMatchups,
@@ -199,16 +199,20 @@ export default async function StandingsPage({
   const matrixRecordsMap: Record<string, MatrixRecordCell> = {};
 
   if (activeView === "H2H") {
-    const [[latestStandingsWeekRow], divisionMatchups] = await Promise.all([
+    const [h2hRows, divisionMatchups] = await Promise.all([
       db
-        .select({ maxWeek: max(vfflVwStandings.week) })
+        .select()
         .from(vfflVwStandings)
         .where(
           and(
             eq(vfflVwStandings.seasonYear, seasonYear),
-            lte(vfflVwStandings.week, week),
+            eq(vfflVwStandings.week, week),
             eq(vfflVwStandings.leagueName, dbLeagueName)
           )
+        )
+        .orderBy(
+          asc(vfflVwStandings.standing),
+          desc(vfflVwStandings.pointsFor)
         ),
       db
         .select()
@@ -222,23 +226,6 @@ export default async function StandingsPage({
         )
         .orderBy(asc(vfflVwMatchups.week), asc(vfflVwMatchups.matchupId)),
     ]);
-
-    const h2hWeek = latestStandingsWeekRow?.maxWeek ?? week;
-
-    const h2hRows = await db
-      .select()
-      .from(vfflVwStandings)
-      .where(
-        and(
-          eq(vfflVwStandings.seasonYear, seasonYear),
-          eq(vfflVwStandings.week, h2hWeek),
-          eq(vfflVwStandings.leagueName, dbLeagueName)
-        )
-      )
-      .orderBy(
-        asc(vfflVwStandings.standing),
-        desc(vfflVwStandings.pointsFor)
-      );
 
     standingsRows = h2hRows;
 
