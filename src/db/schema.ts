@@ -673,6 +673,208 @@ export const vfflWeeklyRecaps = vffl.table("weekly_recaps", {
 });
 
 // -----------------------------------------------------------------------------
+// Manager Profiles Views
+// -----------------------------------------------------------------------------
+
+// 1. Game-Level, Season & Career Luck View
+export const vfflVwManagerGameLuck = vffl.view("vw_manager_game_luck", {
+  managerId: integer("manager_id"),
+  managerName: text("manager_name"),
+  seasonYear: integer("season_year"),
+  leagueId: integer("league_id"),
+  leagueName: varchar("league_name", { length: 255 }),
+  week: integer("week"),
+  teamName: varchar("team_name", { length: 255 }),
+  opponentId: integer("opponent_id"),
+  opponentName: text("opponent_name"),
+  opponentTeamName: varchar("opponent_team_name", { length: 255 }),
+  pointsFor: real("points_for"),
+  pointsAgainst: real("points_against"),
+  result: text("result"),
+  wkApWins: integer("wk_ap_wins"),
+  wkApLosses: integer("wk_ap_losses"),
+  wkApTies: integer("wk_ap_ties"),
+  wkApWinPct: real("wk_ap_win_pct"),
+  wkDivRank: integer("wk_div_rank"),
+  gameLuck: real("game_luck"),
+  luckCategory: text("luck_category"),
+  scope: text("scope"),
+  deservedWins: integer("deserved_wins"),
+  luckyWins: integer("lucky_wins"),
+  tossUps: integer("toss_ups"),
+  unluckyLosses: integer("unlucky_losses"),
+  deservedLosses: integer("deserved_losses"),
+}).existing();
+
+// 2. Manager Season-by-Season History View
+export const vfflVwManagerSeasonHistory = vffl.view("vw_manager_season_history", {
+  // Identity
+  managerId: integer("manager_id"),
+  managerName: text("manager_name"),
+  seasonYear: integer("season_year"),
+  leagueId: integer("league_id"),
+  leagueName: varchar("league_name", { length: 255 }),
+  teamName: varchar("team_name", { length: 255 }),
+  teamAbbrev: varchar("team_abbrev", { length: 10 }),
+  logoUrl: text("logo_url"),
+
+  // H2H
+  h2hWins: integer("h2h_wins"),
+  h2hLosses: integer("h2h_losses"),
+  h2hTies: integer("h2h_ties"),
+  h2hRecord: text("h2h_record"),
+  h2hWinPct: real("h2h_win_pct"),
+  pointsFor: real("points_for"),
+  pointsAgainst: real("points_against"),
+  avgPpg: real("avg_ppg"),
+
+  // Division All-Play
+  divApWins: integer("div_ap_wins"),
+  divApLosses: integer("div_ap_losses"),
+  divApTies: integer("div_ap_ties"),
+  divApRecord: text("div_ap_record"),
+  divApWinPct: real("div_ap_win_pct"),
+
+  // Overall All-Play (NULL for single-league seasons)
+  ovrApWins: integer("ovr_ap_wins"),
+  ovrApLosses: integer("ovr_ap_losses"),
+  ovrApTies: integer("ovr_ap_ties"),
+  ovrApRecord: text("ovr_ap_record"),
+  ovrApWinPct: real("ovr_ap_win_pct"),
+
+  // Accolades & Playoffs
+  madePlayoffs: boolean("made_playoffs"),
+  isChampion: boolean("is_champion"),
+  isRunnerUp: boolean("is_runner_up"),
+  isPointsTitle: boolean("is_points_title"),
+  playoffWins: integer("playoff_wins"),
+  playoffLosses: integer("playoff_losses"),
+  playoffRecord: text("playoff_record"),
+
+  // Luck
+  deservedWins: integer("deserved_wins"),
+  luckyWins: integer("lucky_wins"),
+  tossUps: integer("toss_ups"),
+  unluckyLosses: integer("unlucky_losses"),
+  deservedLosses: integer("deserved_losses"),
+  seasonLuckScore: real("season_luck_score"),
+}).existing();
+
+// 3. Manager Career Summary & Trophy Case View
+export const vfflVwManagerCareerSummary = vffl.view("vw_manager_career_summary", {
+  // Identity
+  managerId: integer("manager_id"),
+  managerName: text("manager_name"),
+  active: boolean("active"),
+  totalSeasons: integer("total_seasons"),
+
+  // Career H2H & Scoring
+  h2hWins: integer("h2h_wins"),
+  h2hLosses: integer("h2h_losses"),
+  h2hTies: integer("h2h_ties"),
+  h2hRecord: text("h2h_record"),
+  h2hWinPct: real("h2h_win_pct"),
+  totalPf: real("total_pf"),
+  totalPa: real("total_pa"),
+  avgPfPerSeason: real("avg_pf_per_season"),
+  avgPpg: real("avg_ppg"),
+
+  // Trophy Case & Playoffs
+  playoffTrips: integer("playoff_trips"),
+  championships: integer("championships"),
+  runnerUps: integer("runner_ups"),
+  pointsTitles: integer("points_titles"),
+  playoffWins: integer("playoff_wins"),
+  playoffLosses: integer("playoff_losses"),
+  playoffRecord: text("playoff_record"),
+  playoffWinPct: real("playoff_win_pct"),
+
+  // Career All-Play
+  divApWins: integer("div_ap_wins"),
+  divApLosses: integer("div_ap_losses"),
+  divApTies: integer("div_ap_ties"),
+  divApRecord: text("div_ap_record"),
+  divApWinPct: real("div_ap_win_pct"),
+  ovrApWins: integer("ovr_ap_wins"),
+  ovrApLosses: integer("ovr_ap_losses"),
+  ovrApTies: integer("ovr_ap_ties"),
+  ovrApRecord: text("ovr_ap_record"),
+  ovrApWinPct: real("ovr_ap_win_pct"),
+
+  // Career Luck
+  deservedWins: integer("deserved_wins"),
+  luckyWins: integer("lucky_wins"),
+  tossUps: integer("toss_ups"),
+  unluckyLosses: integer("unlucky_losses"),
+  deservedLosses: integer("deserved_losses"),
+  careerLuckScore: real("career_luck_score"),
+}).existing();
+
+// 4. Manager Extreme Games (Top 5 Wins & Bottom 5 Losses) View
+export const vfflVwManagerExtremeGames = vffl.view("vw_manager_extreme_games", {
+  managerId: integer("manager_id"),
+  managerName: text("manager_name"),
+  category: text("category"),
+  rank: integer("rank"),
+  seasonYear: integer("season_year"),
+  week: integer("week"),
+  leagueName: varchar("league_name", { length: 255 }),
+  matchupType: varchar("matchup_type", { length: 50 }),
+  teamName: varchar("team_name", { length: 255 }),
+  logoUrl: text("logo_url"),
+  opponentId: integer("opponent_id"),
+  opponentName: text("opponent_name"),
+  opponentTeamName: varchar("opponent_team_name", { length: 255 }),
+  opponentLogoUrl: text("opponent_logo_url"),
+  pointsFor: real("points_for"),
+  pointsAgainst: real("points_against"),
+  margin: real("margin"),
+}).existing();
+
+// 5. Manager Head-to-Head Matrix View
+export const vfflVwManagerH2hMatrix = vffl.view("vw_manager_h2h_matrix", {
+  scope: text("scope"),
+  seasonYear: integer("season_year"),
+  managerId: integer("manager_id"),
+  managerName: text("manager_name"),
+  opponentId: integer("opponent_id"),
+  opponentName: text("opponent_name"),
+  opponentActive: boolean("opponent_active"),
+  wins: integer("wins"),
+  losses: integer("losses"),
+  ties: integer("ties"),
+  record: text("record"),
+  winPct: real("win_pct"),
+  pointsFor: real("points_for"),
+  pointsAgainst: real("points_against"),
+  pointDiff: real("point_diff"),
+  teamName: varchar("team_name", { length: 255 }),
+  opponentTeamName: varchar("opponent_team_name", { length: 255 }),
+}).existing();
+
+// 6. Manager All-Play Matrix View
+export const vfflVwManagerAllPlayMatrix = vffl.view("vw_manager_all_play_matrix", {
+  scope: text("scope"),
+  seasonYear: integer("season_year"),
+  managerId: integer("manager_id"),
+  managerName: text("manager_name"),
+  opponentId: integer("opponent_id"),
+  opponentName: text("opponent_name"),
+  opponentActive: boolean("opponent_active"),
+  wins: integer("wins"),
+  losses: integer("losses"),
+  ties: integer("ties"),
+  record: text("record"),
+  winPct: real("win_pct"),
+  pointsForSum: real("points_for_sum"),
+  pointsForAvg: real("points_for_avg"),
+  pointsAgainstSum: real("points_against_sum"),
+  pointsAgainstAvg: real("points_against_avg"),
+  teamName: varchar("team_name", { length: 255 }),
+  opponentTeamName: varchar("opponent_team_name", { length: 255 }),
+}).existing();
+
+// -----------------------------------------------------------------------------
 // 2. NCAA: Pick-10 Challenge
 // -----------------------------------------------------------------------------
 export const ncaa = pgSchema("ncaa");

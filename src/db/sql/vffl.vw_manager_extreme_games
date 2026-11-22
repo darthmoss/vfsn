@@ -1,0 +1,163 @@
+WITH
+    league_lookup AS (
+        SELECT DISTINCT
+            leagues.league_id,
+            leagues.name AS league_name
+        FROM
+            vffl.leagues
+    ),
+    h2h_games AS (
+        SELECT
+            m.season_year,
+            m.league_id,
+            m.week,
+            m.matchup_type,
+            m.home_manager_id AS manager_id,
+            m.away_manager_id AS opponent_id,
+            m.home_score AS points_for,
+            m.away_score AS points_against,
+            m.home_score - m.away_score AS margin
+        FROM
+            vffl.matchups m
+        WHERE
+            m.week > 0
+            AND m.home_manager_id IS NOT NULL
+            AND m.away_manager_id IS NOT NULL
+            AND m.home_score IS NOT NULL
+            AND m.away_score IS NOT NULL
+        UNION ALL
+        SELECT
+            m.season_year,
+            m.league_id,
+            m.week,
+            m.matchup_type,
+            m.away_manager_id AS manager_id,
+            m.home_manager_id AS opponent_id,
+            m.away_score AS points_for,
+            m.home_score AS points_against,
+            m.away_score - m.home_score AS margin
+        FROM
+            vffl.matchups m
+        WHERE
+            m.week > 0
+            AND m.home_manager_id IS NOT NULL
+            AND m.away_manager_id IS NOT NULL
+            AND m.home_score IS NOT NULL
+            AND m.away_score IS NOT NULL
+    ),
+    ranked_wins AS (
+        SELECT
+            g.manager_id,
+            'BIGGEST_WIN'::text AS category,
+            row_number() OVER (
+                PARTITION BY
+                    g.manager_id
+                ORDER BY
+                    g.margin DESC,
+                    g.points_for DESC,
+                    g.season_year DESC,
+                    g.week DESC
+            )::integer AS rank,
+            g.season_year,
+            g.week,
+            g.league_id,
+            g.matchup_type,
+            g.opponent_id,
+            g.points_for,
+            g.points_against,
+            g.margin
+        FROM
+            h2h_games g
+        WHERE
+            g.margin > 0::real
+    ),
+    ranked_losses AS (
+        SELECT
+            g.manager_id,
+            'BIGGEST_LOSS'::text AS category,
+            row_number() OVER (
+                PARTITION BY
+                    g.manager_id
+                ORDER BY
+                    g.margin ASC,
+                    g.points_for ASC,
+                    g.season_year DESC,
+                    g.week DESC
+            )::integer AS rank,
+            g.season_year,
+            g.week,
+            g.league_id,
+            g.matchup_type,
+            g.opponent_id,
+            g.points_for,
+            g.points_against,
+            g.margin
+        FROM
+            h2h_games g
+        WHERE
+            g.margin < 0::real
+    ),
+    combined_extremes AS (
+        SELECT
+            rw.manager_id,
+            rw.category,
+            rw.rank,
+            rw.season_year,
+            rw.week,
+            rw.league_id,
+            rw.matchup_type,
+            rw.opponent_id,
+            rw.points_for,
+            rw.points_against,
+            rw.margin
+        FROM
+            ranked_wins rw
+        WHERE
+            rw.rank <= 5
+        UNION ALL
+        SELECT
+            rl.manager_id,
+            rl.category,
+            rl.rank,
+            rl.season_year,
+            rl.week,
+            rl.league_id,
+            rl.matchup_type,
+            rl.opponent_id,
+            rl.points_for,
+            rl.points_against,
+            rl.margin
+        FROM
+            ranked_losses rl
+        WHERE
+            rl.rank <= 5
+    )
+SELECT
+    ce.manager_id,
+    (mgr.first_name || ' ') || "left" (mgr.last_name, 1) AS manager_name,
+    ce.category,
+    ce.rank,
+    ce.season_year,
+    ce.week,
+    ll.league_name,
+    ce.matchup_type,
+    t.team_name,
+    t.logo_url,
+    ce.opponent_id,
+    (opp.first_name || ' ') || "left" (opp.last_name, 1) AS opponent_name,
+    ot.team_name AS opponent_team_name,
+    ot.logo_url AS opponent_logo_url,
+    round(ce.points_for::numeric, 2)::real AS points_for,
+    round(ce.points_against::numeric, 2)::real AS points_against,
+    round(ce.margin::numeric, 2)::real AS margin
+FROM
+    combined_extremes ce
+    JOIN vffl.managers mgr ON ce.manager_id = mgr.id
+    JOIN vffl.managers opp ON ce.opponent_id = opp.id
+    JOIN league_lookup ll ON ce.league_id = ll.league_id
+    LEFT JOIN vffl.teams t ON ce.manager_id = t.manager_id
+    AND ce.league_id = t.league_id
+    AND ce.season_year = t.season_year
+    LEFT JOIN vffl.teams ot ON ce.opponent_id = ot.manager_id
+    AND ce.league_id = ot.league_id
+    AND ce.season_year = ot.season_year;

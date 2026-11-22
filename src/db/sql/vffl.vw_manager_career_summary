@@ -1,0 +1,162 @@
+WITH
+    scored_games AS (
+        SELECT
+            m.home_manager_id AS manager_id,
+            m.home_score AS pf
+        FROM
+            vffl.matchups m
+        WHERE
+            m.week > 0
+            AND m.home_manager_id IS NOT NULL
+            AND m.home_score IS NOT NULL
+            AND (
+                m.away_score IS NOT NULL
+                OR m.matchup_type = 'Bye Week'
+            )
+        UNION ALL
+        SELECT
+            m.away_manager_id AS manager_id,
+            m.away_score AS pf
+        FROM
+            vffl.matchups m
+        WHERE
+            m.week > 0
+            AND m.away_manager_id IS NOT NULL
+            AND m.home_manager_id IS NOT NULL
+            AND m.away_score IS NOT NULL
+            AND m.home_score IS NOT NULL
+    ),
+    career_ppg AS (
+        SELECT
+            sg.manager_id,
+            count(*) AS total_games_scored,
+            round((sum(sg.pf)::numeric / NULLIF(count(*), 0)::numeric), 2)::real AS avg_ppg
+        FROM
+            scored_games sg
+        GROUP BY
+            sg.manager_id
+    ),
+    career_luck_exact AS (
+        SELECT
+            l.manager_id,
+            l.game_luck AS career_luck_score
+        FROM
+            vffl.vw_manager_game_luck l
+        WHERE
+            l.scope = 'CAREER'
+    )
+SELECT
+    m.id AS manager_id,
+    (m.first_name || ' ') || "left" (m.last_name, 1) AS manager_name,
+    COALESCE(m.active, true) AS active,
+    count(DISTINCT sh.season_year)::integer AS total_seasons,
+    COALESCE(sum(sh.h2h_wins), 0)::integer AS h2h_wins,
+    COALESCE(sum(sh.h2h_losses), 0)::integer AS h2h_losses,
+    COALESCE(sum(sh.h2h_ties), 0)::integer AS h2h_ties,
+    CASE
+        WHEN COALESCE(sum(sh.h2h_ties), 0) > 0 THEN (((COALESCE(sum(sh.h2h_wins), 0) || '-') || COALESCE(sum(sh.h2h_losses), 0)) || '-') || COALESCE(sum(sh.h2h_ties), 0)
+        ELSE (COALESCE(sum(sh.h2h_wins), 0) || '-') || COALESCE(sum(sh.h2h_losses), 0)
+    END AS h2h_record,
+    COALESCE(
+        round(
+            (
+                COALESCE(sum(sh.h2h_wins), 0)::numeric + COALESCE(sum(sh.h2h_ties), 0)::numeric * 0.5
+            ) / NULLIF(
+                COALESCE(sum(sh.h2h_wins), 0) + COALESCE(sum(sh.h2h_losses), 0) + COALESCE(sum(sh.h2h_ties), 0),
+                0
+            )::numeric,
+            3
+        )::real,
+        0.0::real
+    ) AS h2h_win_pct,
+    round(COALESCE(sum(sh.points_for), 0::real)::numeric, 2)::real AS total_pf,
+    round(COALESCE(sum(sh.points_against), 0::real)::numeric, 2)::real AS total_pa,
+    COALESCE(
+        round(
+            (
+                COALESCE(sum(sh.points_for), 0::real)::numeric / NULLIF(count(sh.league_id), 0)::numeric
+            ),
+            2
+        )::real,
+        0.0::real
+    ) AS avg_pf_per_season,
+    COALESCE(cp.avg_ppg, 0.0::real) AS avg_ppg,
+    count(*) FILTER (WHERE sh.made_playoffs)::integer AS playoff_trips,
+    count(*) FILTER (WHERE sh.is_champion)::integer AS championships,
+    count(*) FILTER (WHERE sh.is_runner_up)::integer AS runner_ups,
+    count(*) FILTER (WHERE sh.is_points_title)::integer AS points_titles,
+    COALESCE(sum(sh.playoff_wins), 0)::integer AS playoff_wins,
+    COALESCE(sum(sh.playoff_losses), 0)::integer AS playoff_losses,
+    (COALESCE(sum(sh.playoff_wins), 0) || '-') || COALESCE(sum(sh.playoff_losses), 0) AS playoff_record,
+    COALESCE(
+        round(
+            (
+                COALESCE(sum(sh.playoff_wins), 0)::numeric / NULLIF(
+                    COALESCE(sum(sh.playoff_wins), 0) + COALESCE(sum(sh.playoff_losses), 0),
+                    0
+                )::numeric
+            ),
+            3
+        )::real,
+        0.0::real
+    ) AS playoff_win_pct,
+    COALESCE(sum(sh.div_ap_wins), 0)::integer AS div_ap_wins,
+    COALESCE(sum(sh.div_ap_losses), 0)::integer AS div_ap_losses,
+    COALESCE(sum(sh.div_ap_ties), 0)::integer AS div_ap_ties,
+    CASE
+        WHEN COALESCE(sum(sh.div_ap_ties), 0) > 0 THEN (((COALESCE(sum(sh.div_ap_wins), 0) || '-') || COALESCE(sum(sh.div_ap_losses), 0)) || '-') || COALESCE(sum(sh.div_ap_ties), 0)
+        ELSE (COALESCE(sum(sh.div_ap_wins), 0) || '-') || COALESCE(sum(sh.div_ap_losses), 0)
+    END AS div_ap_record,
+    COALESCE(
+        round(
+            (
+                COALESCE(sum(sh.div_ap_wins), 0)::numeric + COALESCE(sum(sh.div_ap_ties), 0)::numeric * 0.5
+            ) / NULLIF(
+                COALESCE(sum(sh.div_ap_wins), 0) + COALESCE(sum(sh.div_ap_losses), 0) + COALESCE(sum(sh.div_ap_ties), 0),
+                0
+            )::numeric,
+            3
+        )::real,
+        0.0::real
+    ) AS div_ap_win_pct,
+    sum(sh.ovr_ap_wins)::integer AS ovr_ap_wins,
+    sum(sh.ovr_ap_losses)::integer AS ovr_ap_losses,
+    sum(sh.ovr_ap_ties)::integer AS ovr_ap_ties,
+    CASE
+        WHEN sum(sh.ovr_ap_wins) IS NULL THEN NULL::text
+        WHEN COALESCE(sum(sh.ovr_ap_ties), 0) > 0 THEN (((sum(sh.ovr_ap_wins) || '-') || sum(sh.ovr_ap_losses)) || '-') || sum(sh.ovr_ap_ties)
+        ELSE (sum(sh.ovr_ap_wins) || '-') || sum(sh.ovr_ap_losses)
+    END AS ovr_ap_record,
+    CASE
+        WHEN sum(sh.ovr_ap_wins) IS NULL THEN NULL::real
+        ELSE COALESCE(
+            round(
+                (
+                    sum(sh.ovr_ap_wins)::numeric + COALESCE(sum(sh.ovr_ap_ties), 0)::numeric * 0.5
+                ) / NULLIF(
+                    sum(sh.ovr_ap_wins) + sum(sh.ovr_ap_losses) + COALESCE(sum(sh.ovr_ap_ties), 0),
+                    0
+                )::numeric,
+                3
+            )::real,
+            0.0::real
+        )
+    END AS ovr_ap_win_pct,
+    COALESCE(sum(sh.deserved_wins), 0)::integer AS deserved_wins,
+    COALESCE(sum(sh.lucky_wins), 0)::integer AS lucky_wins,
+    COALESCE(sum(sh.toss_ups), 0)::integer AS toss_ups,
+    COALESCE(sum(sh.unlucky_losses), 0)::integer AS unlucky_losses,
+    COALESCE(sum(sh.deserved_losses), 0)::integer AS deserved_losses,
+    COALESCE(cle.career_luck_score, 0.0::real) AS career_luck_score
+FROM
+    vffl.managers m
+    LEFT JOIN vffl.vw_manager_season_history sh ON m.id = sh.manager_id
+    LEFT JOIN career_ppg cp ON m.id = cp.manager_id
+    LEFT JOIN career_luck_exact cle ON m.id = cle.manager_id
+GROUP BY
+    m.id,
+    m.first_name,
+    m.last_name,
+    m.active,
+    cp.avg_ppg,
+    cle.career_luck_score;

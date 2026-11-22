@@ -1,0 +1,170 @@
+WITH
+    latest_teams AS (
+        SELECT DISTINCT ON (t.manager_id)
+            t.manager_id,
+            t.team_name
+        FROM
+            vffl.teams t
+        ORDER BY
+            t.manager_id,
+            t.season_year DESC,
+            t.league_id DESC
+    ),
+    weekly_scores AS (
+        SELECT
+            m.season_year,
+            m.league_id,
+            m.week,
+            m.home_manager_id AS manager_id,
+            m.home_score AS points_for,
+            ht.team_name
+        FROM
+            vffl.matchups m
+            LEFT JOIN vffl.teams ht ON m.home_manager_id = ht.manager_id
+            AND m.league_id = ht.league_id
+            AND m.season_year = ht.season_year
+        WHERE
+            m.week > 0
+            AND m.home_manager_id IS NOT NULL
+            AND m.home_score IS NOT NULL
+            AND (
+                m.away_score IS NOT NULL
+                OR m.matchup_type = 'Bye Week'
+            )
+        UNION ALL
+        SELECT
+            m.season_year,
+            m.league_id,
+            m.week,
+            m.away_manager_id AS manager_id,
+            m.away_score AS points_for,
+            at.team_name
+        FROM
+            vffl.matchups m
+            LEFT JOIN vffl.teams at ON m.away_manager_id = at.manager_id
+            AND m.league_id = at.league_id
+            AND m.season_year = at.season_year
+        WHERE
+            m.week > 0
+            AND m.away_manager_id IS NOT NULL
+            AND m.home_manager_id IS NOT NULL
+            AND m.away_score IS NOT NULL
+            AND m.home_score IS NOT NULL
+    ),
+    deduped_pairings AS (
+        SELECT DISTINCT ON (
+            h.season_year,
+            h.week,
+            h.manager_id,
+            a.manager_id
+        )
+            h.season_year,
+            h.week,
+            h.manager_id,
+            h.team_name,
+            a.manager_id AS opponent_id,
+            a.team_name AS opponent_team_name,
+            h.points_for AS pf,
+            a.points_for AS pa,
+            CASE
+                WHEN h.points_for > a.points_for THEN 1
+                ELSE 0
+            END AS is_win,
+            CASE
+                WHEN h.points_for < a.points_for THEN 1
+                ELSE 0
+            END AS is_loss,
+            CASE
+                WHEN h.points_for = a.points_for THEN 1
+                ELSE 0
+            END AS is_tie
+        FROM
+            weekly_scores h
+            JOIN weekly_scores a ON h.season_year = a.season_year
+            AND h.week = a.week
+            AND h.manager_id <> a.manager_id
+        ORDER BY
+            h.season_year,
+            h.week,
+            h.manager_id,
+            a.manager_id,
+            (h.league_id = a.league_id) DESC
+    ),
+    aggregated_ap AS (
+        SELECT
+            'SEASON'::text AS scope,
+            p.season_year,
+            p.manager_id,
+            p.opponent_id,
+            max(p.team_name)::varchar(255) AS season_team_name,
+            max(p.opponent_team_name)::varchar(255) AS season_opponent_team_name,
+            sum(p.is_win)::integer AS wins,
+            sum(p.is_loss)::integer AS losses,
+            sum(p.is_tie)::integer AS ties,
+            sum(p.pf) AS pf_sum,
+            avg(p.pf) AS pf_avg,
+            sum(p.pa) AS pa_sum,
+            avg(p.pa) AS pa_avg
+        FROM
+            deduped_pairings p
+        GROUP BY
+            p.season_year,
+            p.manager_id,
+            p.opponent_id
+        UNION ALL
+        SELECT
+            'CAREER'::text AS scope,
+            NULL::integer AS season_year,
+            p.manager_id,
+            p.opponent_id,
+            NULL::varchar(255) AS season_team_name,
+            NULL::varchar(255) AS season_opponent_team_name,
+            sum(p.is_win)::integer AS wins,
+            sum(p.is_loss)::integer AS losses,
+            sum(p.is_tie)::integer AS ties,
+            sum(p.pf) AS pf_sum,
+            avg(p.pf) AS pf_avg,
+            sum(p.pa) AS pa_sum,
+            avg(p.pa) AS pa_avg
+        FROM
+            deduped_pairings p
+        GROUP BY
+            p.manager_id,
+            p.opponent_id
+    )
+SELECT
+    a.scope,
+    a.season_year,
+    a.manager_id,
+    (mgr.first_name || ' ') || "left" (mgr.last_name, 1) AS manager_name,
+    a.opponent_id,
+    (opp.first_name || ' ') || "left" (opp.last_name, 1) AS opponent_name,
+    COALESCE(opp.active, true) AS opponent_active,
+    a.wins,
+    a.losses,
+    a.ties,
+    CASE
+        WHEN a.ties > 0 THEN (((a.wins || '-') || a.losses) || '-') || a.ties
+        ELSE (a.wins || '-') || a.losses
+    END AS record,
+    COALESCE(
+        round(
+            (
+                a.wins::numeric + a.ties::numeric * 0.5
+            ) / NULLIF(a.wins + a.losses + a.ties, 0)::numeric,
+            3
+        )::real,
+        0.0::real
+    ) AS win_pct,
+    round(a.pf_sum::numeric, 2)::real AS points_for_sum,
+    round(a.pf_avg::numeric, 2)::real AS points_for_avg,
+    round(a.pa_sum::numeric, 2)::real AS points_against_sum,
+    round(a.pa_avg::numeric, 2)::real AS points_against_avg,
+    COALESCE(a.season_team_name, lt_mgr.team_name) AS team_name,
+    COALESCE(a.season_opponent_team_name, lt_opp.team_name) AS opponent_team_name
+FROM
+    aggregated_ap a
+    JOIN vffl.managers mgr ON a.manager_id = mgr.id
+    JOIN vffl.managers opp ON a.opponent_id = opp.id
+    LEFT JOIN latest_teams lt_mgr ON a.manager_id = lt_mgr.manager_id
+    LEFT JOIN latest_teams lt_opp ON a.opponent_id = lt_opp.manager_id;

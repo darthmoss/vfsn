@@ -1,0 +1,160 @@
+WITH
+    latest_teams AS (
+        SELECT DISTINCT ON (t.manager_id)
+            t.manager_id,
+            t.team_name
+        FROM
+            vffl.teams t
+        ORDER BY
+            t.manager_id,
+            t.season_year DESC,
+            t.league_id DESC
+    ),
+    h2h_games AS (
+        SELECT
+            m.season_year,
+            m.league_id,
+            m.home_manager_id AS manager_id,
+            ht.team_name,
+            m.away_manager_id AS opponent_id,
+            at.team_name AS opponent_team_name,
+            m.home_score AS pf,
+            m.away_score AS pa,
+            CASE
+                WHEN m.home_score > m.away_score THEN 1
+                ELSE 0
+            END AS is_win,
+            CASE
+                WHEN m.home_score < m.away_score THEN 1
+                ELSE 0
+            END AS is_loss,
+            CASE
+                WHEN m.home_score = m.away_score THEN 1
+                ELSE 0
+            END AS is_tie
+        FROM
+            vffl.matchups m
+            LEFT JOIN vffl.teams ht ON m.home_manager_id = ht.manager_id
+            AND m.league_id = ht.league_id
+            AND m.season_year = ht.season_year
+            LEFT JOIN vffl.teams at ON m.away_manager_id = at.manager_id
+            AND m.league_id = at.league_id
+            AND m.season_year = at.season_year
+        WHERE
+            m.week > 0
+            AND m.home_manager_id IS NOT NULL
+            AND m.away_manager_id IS NOT NULL
+            AND m.home_score IS NOT NULL
+            AND m.away_score IS NOT NULL
+            AND m.home_manager_id <> m.away_manager_id
+        UNION ALL
+        SELECT
+            m.season_year,
+            m.league_id,
+            m.away_manager_id AS manager_id,
+            at.team_name,
+            m.home_manager_id AS opponent_id,
+            ht.team_name AS opponent_team_name,
+            m.away_score AS pf,
+            m.home_score AS pa,
+            CASE
+                WHEN m.away_score > m.home_score THEN 1
+                ELSE 0
+            END AS is_win,
+            CASE
+                WHEN m.away_score < m.home_score THEN 1
+                ELSE 0
+            END AS is_loss,
+            CASE
+                WHEN m.away_score = m.home_score THEN 1
+                ELSE 0
+            END AS is_tie
+        FROM
+            vffl.matchups m
+            LEFT JOIN vffl.teams ht ON m.home_manager_id = ht.manager_id
+            AND m.league_id = ht.league_id
+            AND m.season_year = ht.season_year
+            LEFT JOIN vffl.teams at ON m.away_manager_id = at.manager_id
+            AND m.league_id = at.league_id
+            AND m.season_year = at.season_year
+        WHERE
+            m.week > 0
+            AND m.home_manager_id IS NOT NULL
+            AND m.away_manager_id IS NOT NULL
+            AND m.home_score IS NOT NULL
+            AND m.away_score IS NOT NULL
+            AND m.home_manager_id <> m.away_manager_id
+    ),
+    aggregated_h2h AS (
+        SELECT
+            'SEASON'::text AS scope,
+            g.season_year,
+            g.manager_id,
+            g.opponent_id,
+            max(g.team_name)::varchar(255) AS season_team_name,
+            max(g.opponent_team_name)::varchar(255) AS season_opponent_team_name,
+            sum(g.is_win)::integer AS wins,
+            sum(g.is_loss)::integer AS losses,
+            sum(g.is_tie)::integer AS ties,
+            sum(g.pf) AS pf_sum,
+            sum(g.pa) AS pa_sum
+        FROM
+            h2h_games g
+        GROUP BY
+            g.season_year,
+            g.manager_id,
+            g.opponent_id
+        UNION ALL
+        SELECT
+            'CAREER'::text AS scope,
+            NULL::integer AS season_year,
+            g.manager_id,
+            g.opponent_id,
+            NULL::varchar(255) AS season_team_name,
+            NULL::varchar(255) AS season_opponent_team_name,
+            sum(g.is_win)::integer AS wins,
+            sum(g.is_loss)::integer AS losses,
+            sum(g.is_tie)::integer AS ties,
+            sum(g.pf) AS pf_sum,
+            sum(g.pa) AS pa_sum
+        FROM
+            h2h_games g
+        GROUP BY
+            g.manager_id,
+            g.opponent_id
+    )
+SELECT
+    a.scope,
+    a.season_year,
+    a.manager_id,
+    (mgr.first_name || ' ') || "left" (mgr.last_name, 1) AS manager_name,
+    a.opponent_id,
+    (opp.first_name || ' ') || "left" (opp.last_name, 1) AS opponent_name,
+    COALESCE(opp.active, true) AS opponent_active,
+    a.wins,
+    a.losses,
+    a.ties,
+    CASE
+        WHEN a.ties > 0 THEN (((a.wins || '-') || a.losses) || '-') || a.ties
+        ELSE (a.wins || '-') || a.losses
+    END AS record,
+    COALESCE(
+        round(
+            (
+                a.wins::numeric + a.ties::numeric * 0.5
+            ) / NULLIF(a.wins + a.losses + a.ties, 0)::numeric,
+            3
+        )::real,
+        0.0::real
+    ) AS win_pct,
+    round(a.pf_sum::numeric, 2)::real AS points_for,
+    round(a.pa_sum::numeric, 2)::real AS points_against,
+    round((a.pf_sum - a.pa_sum)::numeric, 2)::real AS point_diff,
+    COALESCE(a.season_team_name, lt_mgr.team_name) AS team_name,
+    COALESCE(a.season_opponent_team_name, lt_opp.team_name) AS opponent_team_name
+FROM
+    aggregated_h2h a
+    JOIN vffl.managers mgr ON a.manager_id = mgr.id
+    JOIN vffl.managers opp ON a.opponent_id = opp.id
+    LEFT JOIN latest_teams lt_mgr ON a.manager_id = lt_mgr.manager_id
+    LEFT JOIN latest_teams lt_opp ON a.opponent_id = lt_opp.manager_id;

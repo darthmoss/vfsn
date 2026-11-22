@@ -1,0 +1,341 @@
+WITH
+    league_lookup AS (
+        SELECT DISTINCT
+            leagues.league_id,
+            leagues.name AS league_name
+        FROM
+            vffl.leagues
+    ),
+    latest_teams AS (
+        SELECT DISTINCT ON (t.manager_id)
+            t.manager_id,
+            t.team_name
+        FROM
+            vffl.teams t
+        ORDER BY
+            t.manager_id,
+            t.season_year DESC,
+            t.league_id DESC
+    ),
+    weekly_div_ap AS (
+        SELECT
+            dap.season_year,
+            dap.league_id,
+            dap.week,
+            dap.home_mgr_id AS manager_id,
+            sum(dap.home_fpts) AS wk_pf,
+            sum(
+                CASE
+                    WHEN dap.diff > 0::double precision THEN 1
+                    ELSE 0
+                END
+            )::integer AS wk_ap_wins,
+            sum(
+                CASE
+                    WHEN dap.diff < 0::double precision THEN 1
+                    ELSE 0
+                END
+            )::integer AS wk_ap_losses,
+            sum(
+                CASE
+                    WHEN dap.diff = 0::double precision THEN 1
+                    ELSE 0
+                END
+            )::integer AS wk_ap_ties,
+            COALESCE(
+                round(
+                    (
+                        sum(
+                            CASE
+                                WHEN dap.diff > 0::double precision THEN 1
+                                ELSE 0
+                            END
+                        )::numeric + sum(
+                            CASE
+                                WHEN dap.diff = 0::double precision THEN 1
+                                ELSE 0
+                            END
+                        )::numeric * 0.5
+                    ) / NULLIF(count(*), 0)::numeric,
+                    3
+                )::real,
+                0.0::real
+            ) AS wk_ap_win_pct
+        FROM
+            vffl.div_all_play_matchups dap
+        GROUP BY
+            dap.season_year,
+            dap.league_id,
+            dap.week,
+            dap.home_mgr_id
+    ),
+    ranked_div_ap AS (
+        SELECT
+            wda.season_year,
+            wda.league_id,
+            wda.week,
+            wda.manager_id,
+            wda.wk_ap_wins,
+            wda.wk_ap_losses,
+            wda.wk_ap_ties,
+            wda.wk_ap_win_pct,
+            rank() OVER (
+                PARTITION BY
+                    wda.season_year,
+                    wda.league_id,
+                    wda.week
+                ORDER BY
+                    wda.wk_ap_win_pct DESC,
+                    wda.wk_pf DESC
+            )::integer AS wk_div_rank
+        FROM
+            weekly_div_ap wda
+    ),
+    h2h_games AS (
+        SELECT
+            m.season_year,
+            m.league_id,
+            m.week,
+            m.home_manager_id AS manager_id,
+            m.away_manager_id AS opponent_id,
+            m.home_score AS points_for,
+            m.away_score AS points_against,
+            CASE
+                WHEN m.home_score > m.away_score THEN 'W'::text
+                WHEN m.home_score < m.away_score THEN 'L'::text
+                ELSE 'T'::text
+            END AS result,
+            CASE
+                WHEN m.home_score > m.away_score THEN 1.0::numeric
+                WHEN m.home_score < m.away_score THEN 0.0::numeric
+                ELSE 0.5::numeric
+            END AS actual_outcome,
+            CASE
+                WHEN m.home_score > m.away_score THEN 1
+                ELSE 0
+            END AS is_win,
+            CASE
+                WHEN m.home_score < m.away_score THEN 1
+                ELSE 0
+            END AS is_loss,
+            CASE
+                WHEN m.home_score = m.away_score THEN 1
+                ELSE 0
+            END AS is_tie
+        FROM
+            vffl.matchups m
+        WHERE
+            m.week > 0
+            AND m.home_manager_id IS NOT NULL
+            AND m.away_manager_id IS NOT NULL
+            AND m.home_score IS NOT NULL
+            AND m.away_score IS NOT NULL
+        UNION ALL
+        SELECT
+            m.season_year,
+            m.league_id,
+            m.week,
+            m.away_manager_id AS manager_id,
+            m.home_manager_id AS opponent_id,
+            m.away_score AS points_for,
+            m.home_score AS points_against,
+            CASE
+                WHEN m.away_score > m.home_score THEN 'W'::text
+                WHEN m.away_score < m.home_score THEN 'L'::text
+                ELSE 'T'::text
+            END AS result,
+            CASE
+                WHEN m.away_score > m.home_score THEN 1.0::numeric
+                WHEN m.away_score < m.home_score THEN 0.0::numeric
+                ELSE 0.5::numeric
+            END AS actual_outcome,
+            CASE
+                WHEN m.away_score > m.home_score THEN 1
+                ELSE 0
+            END AS is_win,
+            CASE
+                WHEN m.away_score < m.home_score THEN 1
+                ELSE 0
+            END AS is_loss,
+            CASE
+                WHEN m.away_score = m.home_score THEN 1
+                ELSE 0
+            END AS is_tie
+        FROM
+            vffl.matchups m
+        WHERE
+            m.week > 0
+            AND m.home_manager_id IS NOT NULL
+            AND m.away_manager_id IS NOT NULL
+            AND m.home_score IS NOT NULL
+            AND m.away_score IS NOT NULL
+    ),
+    game_level AS (
+        SELECT
+            g.manager_id,
+            (mgr.first_name || ' ') || "left" (mgr.last_name, 1) AS manager_name,
+            g.season_year,
+            g.league_id,
+            ll.league_name,
+            g.week,
+            t.team_name,
+            g.opponent_id,
+            (opp.first_name || ' ') || "left" (opp.last_name, 1) AS opponent_name,
+            ot.team_name AS opponent_team_name,
+            round(g.points_for::numeric, 2)::real AS points_for,
+            round(g.points_against::numeric, 2)::real AS points_against,
+            g.result,
+            g.is_win,
+            g.is_loss,
+            g.is_tie,
+            COALESCE(ap.wk_ap_wins, 0) AS wk_ap_wins,
+            COALESCE(ap.wk_ap_losses, 0) AS wk_ap_losses,
+            COALESCE(ap.wk_ap_ties, 0) AS wk_ap_ties,
+            COALESCE(ap.wk_ap_win_pct, 0.0::real) AS wk_ap_win_pct,
+            COALESCE(ap.wk_div_rank, 1) AS wk_div_rank,
+            round((g.actual_outcome - COALESCE(ap.wk_ap_win_pct, 0.0::real)::numeric), 3)::real AS game_luck,
+            CASE
+                WHEN COALESCE(ap.wk_div_rank, 5) <= 3 AND g.result = 'W' THEN 'Deserved Win'::text
+                WHEN COALESCE(ap.wk_div_rank, 5) <= 3 AND g.result = 'L' THEN 'Unlucky Loss'::text
+                WHEN COALESCE(ap.wk_div_rank, 5) >= 8 AND g.result = 'W' THEN 'Lucky Win'::text
+                WHEN COALESCE(ap.wk_div_rank, 5) >= 8 AND g.result = 'L' THEN 'Deserved Loss'::text
+                ELSE 'Toss-Up'::text
+            END AS luck_category
+        FROM
+            h2h_games g
+            JOIN vffl.managers mgr ON g.manager_id = mgr.id
+            JOIN vffl.managers opp ON g.opponent_id = opp.id
+            JOIN league_lookup ll ON g.league_id = ll.league_id
+            LEFT JOIN vffl.teams t ON g.manager_id = t.manager_id
+            AND g.league_id = t.league_id
+            AND g.season_year = t.season_year
+            LEFT JOIN vffl.teams ot ON g.opponent_id = ot.manager_id
+            AND g.league_id = ot.league_id
+            AND g.season_year = ot.season_year
+            LEFT JOIN ranked_div_ap ap ON g.season_year = ap.season_year
+            AND g.league_id = ap.league_id
+            AND g.week = ap.week
+            AND g.manager_id = ap.manager_id
+    )
+SELECT
+    gl.manager_id,
+    gl.manager_name,
+    gl.season_year,
+    gl.league_id,
+    gl.league_name,
+    gl.week,
+    gl.team_name,
+    gl.opponent_id,
+    gl.opponent_name,
+    gl.opponent_team_name,
+    gl.points_for,
+    gl.points_against,
+    gl.result,
+    gl.wk_ap_wins,
+    gl.wk_ap_losses,
+    gl.wk_ap_ties,
+    gl.wk_ap_win_pct,
+    gl.wk_div_rank,
+    gl.game_luck,
+    gl.luck_category,
+    'GAME'::text AS scope,
+    CASE WHEN gl.luck_category = 'Deserved Win' THEN 1 ELSE 0 END AS deserved_wins,
+    CASE WHEN gl.luck_category = 'Lucky Win' THEN 1 ELSE 0 END AS lucky_wins,
+    CASE WHEN gl.luck_category = 'Toss-Up' THEN 1 ELSE 0 END AS toss_ups,
+    CASE WHEN gl.luck_category = 'Unlucky Loss' THEN 1 ELSE 0 END AS unlucky_losses,
+    CASE WHEN gl.luck_category = 'Deserved Loss' THEN 1 ELSE 0 END AS deserved_losses
+FROM
+    game_level gl
+UNION ALL
+SELECT
+    gl.manager_id,
+    gl.manager_name,
+    gl.season_year,
+    gl.league_id,
+    gl.league_name,
+    NULL::integer AS week,
+    max(gl.team_name)::varchar(255) AS team_name,
+    NULL::integer AS opponent_id,
+    NULL::text AS opponent_name,
+    NULL::varchar(255) AS opponent_team_name,
+    round(sum(gl.points_for)::numeric, 2)::real AS points_for,
+    round(sum(gl.points_against)::numeric, 2)::real AS points_against,
+    CASE
+        WHEN sum(gl.is_tie) > 0 THEN (((sum(gl.is_win) || '-') || sum(gl.is_loss)) || '-') || sum(gl.is_tie)
+        ELSE (sum(gl.is_win) || '-') || sum(gl.is_loss)
+    END AS result,
+    sum(gl.wk_ap_wins)::integer AS wk_ap_wins,
+    sum(gl.wk_ap_losses)::integer AS wk_ap_losses,
+    sum(gl.wk_ap_ties)::integer AS wk_ap_ties,
+    COALESCE(
+        round(
+            (
+                sum(gl.wk_ap_wins)::numeric + sum(gl.wk_ap_ties)::numeric * 0.5
+            ) / NULLIF(sum(gl.wk_ap_wins) + sum(gl.wk_ap_losses) + sum(gl.wk_ap_ties), 0)::numeric,
+            3
+        )::real,
+        0.0::real
+    ) AS wk_ap_win_pct,
+    NULL::integer AS wk_div_rank,
+    round(sum(gl.game_luck)::numeric, 2)::real AS game_luck,
+    NULL::text AS luck_category,
+    'SEASON'::text AS scope,
+    count(*) FILTER (WHERE gl.luck_category = 'Deserved Win')::integer AS deserved_wins,
+    count(*) FILTER (WHERE gl.luck_category = 'Lucky Win')::integer AS lucky_wins,
+    count(*) FILTER (WHERE gl.luck_category = 'Toss-Up')::integer AS toss_ups,
+    count(*) FILTER (WHERE gl.luck_category = 'Unlucky Loss')::integer AS unlucky_losses,
+    count(*) FILTER (WHERE gl.luck_category = 'Deserved Loss')::integer AS deserved_losses
+FROM
+    game_level gl
+GROUP BY
+    gl.manager_id,
+    gl.manager_name,
+    gl.season_year,
+    gl.league_id,
+    gl.league_name
+UNION ALL
+SELECT
+    gl.manager_id,
+    gl.manager_name,
+    NULL::integer AS season_year,
+    NULL::integer AS league_id,
+    NULL::varchar(255) AS league_name,
+    NULL::integer AS week,
+    lt.team_name,
+    NULL::integer AS opponent_id,
+    NULL::text AS opponent_name,
+    NULL::varchar(255) AS opponent_team_name,
+    round(sum(gl.points_for)::numeric, 2)::real AS points_for,
+    round(sum(gl.points_against)::numeric, 2)::real AS points_against,
+    CASE
+        WHEN sum(gl.is_tie) > 0 THEN (((sum(gl.is_win) || '-') || sum(gl.is_loss)) || '-') || sum(gl.is_tie)
+        ELSE (sum(gl.is_win) || '-') || sum(gl.is_loss)
+    END AS result,
+    sum(gl.wk_ap_wins)::integer AS wk_ap_wins,
+    sum(gl.wk_ap_losses)::integer AS wk_ap_losses,
+    sum(gl.wk_ap_ties)::integer AS wk_ap_ties,
+    COALESCE(
+        round(
+            (
+                sum(gl.wk_ap_wins)::numeric + sum(gl.wk_ap_ties)::numeric * 0.5
+            ) / NULLIF(sum(gl.wk_ap_wins) + sum(gl.wk_ap_losses) + sum(gl.wk_ap_ties), 0)::numeric,
+            3
+        )::real,
+        0.0::real
+    ) AS wk_ap_win_pct,
+    NULL::integer AS wk_div_rank,
+    round(sum(gl.game_luck)::numeric, 2)::real AS game_luck,
+    NULL::text AS luck_category,
+    'CAREER'::text AS scope,
+    count(*) FILTER (WHERE gl.luck_category = 'Deserved Win')::integer AS deserved_wins,
+    count(*) FILTER (WHERE gl.luck_category = 'Lucky Win')::integer AS lucky_wins,
+    count(*) FILTER (WHERE gl.luck_category = 'Toss-Up')::integer AS toss_ups,
+    count(*) FILTER (WHERE gl.luck_category = 'Unlucky Loss')::integer AS unlucky_losses,
+    count(*) FILTER (WHERE gl.luck_category = 'Deserved Loss')::integer AS deserved_losses
+FROM
+    game_level gl
+    LEFT JOIN latest_teams lt ON gl.manager_id = lt.manager_id
+GROUP BY
+    gl.manager_id,
+    gl.manager_name,
+    lt.team_name;

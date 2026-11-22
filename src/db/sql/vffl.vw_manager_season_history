@@ -1,0 +1,365 @@
+WITH
+    league_lookup AS (
+        SELECT DISTINCT
+            leagues.league_id,
+            leagues.name AS league_name
+        FROM
+            vffl.leagues
+    ),
+    season_league_counts AS (
+        SELECT
+            teams.season_year,
+            count(DISTINCT teams.league_id) AS league_count
+        FROM
+            vffl.teams
+        GROUP BY
+            teams.season_year
+    ),
+    completed_seasons AS (
+        SELECT DISTINCT
+            matchups.season_year,
+            matchups.league_id
+        FROM
+            vffl.matchups
+        WHERE
+            matchups.matchup_type = 'Championship'
+            AND matchups.home_score IS NOT NULL
+            AND matchups.away_score IS NOT NULL
+    ),
+    h2h_games AS (
+        SELECT
+            m.season_year,
+            m.league_id,
+            m.week,
+            m.matchup_type,
+            m.home_manager_id AS manager_id,
+            m.away_manager_id AS opponent_id,
+            m.home_score AS pf,
+            m.away_score AS pa
+        FROM
+            vffl.matchups m
+        WHERE
+            m.week > 0
+            AND m.home_manager_id IS NOT NULL
+            AND m.home_score IS NOT NULL
+            AND (
+                m.away_score IS NOT NULL
+                OR m.matchup_type = 'Bye Week'
+            )
+        UNION ALL
+        SELECT
+            m.season_year,
+            m.league_id,
+            m.week,
+            m.matchup_type,
+            m.away_manager_id AS manager_id,
+            m.home_manager_id AS opponent_id,
+            m.away_score AS pf,
+            m.home_score AS pa
+        FROM
+            vffl.matchups m
+        WHERE
+            m.week > 0
+            AND m.away_manager_id IS NOT NULL
+            AND m.home_manager_id IS NOT NULL
+            AND m.away_score IS NOT NULL
+            AND m.home_score IS NOT NULL
+    ),
+    h2h_season_agg AS (
+        SELECT
+            g.season_year,
+            g.league_id,
+            g.manager_id,
+            sum(
+                CASE
+                    WHEN g.opponent_id IS NOT NULL AND g.pf > g.pa THEN 1
+                    ELSE 0
+                END
+            )::integer AS h2h_wins,
+            sum(
+                CASE
+                    WHEN g.opponent_id IS NOT NULL AND g.pf < g.pa THEN 1
+                    ELSE 0
+                END
+            )::integer AS h2h_losses,
+            sum(
+                CASE
+                    WHEN g.opponent_id IS NOT NULL AND g.pf = g.pa THEN 1
+                    ELSE 0
+                END
+            )::integer AS h2h_ties,
+            round(sum(g.pf)::numeric, 2)::real AS points_for,
+            round(
+                sum(
+                    CASE
+                        WHEN g.opponent_id IS NOT NULL THEN g.pa
+                        ELSE 0::real
+                    END
+                )::numeric,
+                2
+            )::real AS points_against,
+            round((sum(g.pf)::numeric / NULLIF(count(g.pf), 0)::numeric), 2)::real AS avg_ppg,
+            rank() OVER (
+                PARTITION BY
+                    g.season_year,
+                    g.league_id
+                ORDER BY
+                    sum(g.pf) DESC
+            ) AS pf_rank,
+            COALESCE(
+                bool_or(
+                    g.matchup_type IN (
+                        'Bye Week',
+                        'Wild Card',
+                        'Semifinals',
+                        'Championship',
+                        'Money Game',
+                        'Consolation'
+                    )
+                ),
+                false
+            ) AS made_playoffs,
+            COALESCE(
+                bool_or(
+                    g.matchup_type = 'Championship'
+                    AND g.opponent_id IS NOT NULL
+                    AND g.pf > g.pa
+                ),
+                false
+            ) AS is_champion,
+            COALESCE(
+                bool_or(
+                    g.matchup_type = 'Championship'
+                    AND g.opponent_id IS NOT NULL
+                    AND g.pf < g.pa
+                ),
+                false
+            ) AS is_runner_up,
+            sum(
+                CASE
+                    WHEN g.matchup_type IN (
+                        'Bye Week',
+                        'Wild Card',
+                        'Semifinals',
+                        'Championship',
+                        'Money Game'
+                    )
+                    AND g.pf > COALESCE(g.pa, 0::real) THEN 1
+                    ELSE 0
+                END
+            )::integer AS playoff_wins,
+            sum(
+                CASE
+                    WHEN g.matchup_type IN (
+                        'Bye Week',
+                        'Wild Card',
+                        'Semifinals',
+                        'Championship',
+                        'Money Game'
+                    )
+                    AND g.pf < COALESCE(g.pa, 0::real) THEN 1
+                    ELSE 0
+                END
+            )::integer AS playoff_losses
+        FROM
+            h2h_games g
+        GROUP BY
+            g.season_year,
+            g.league_id,
+            g.manager_id
+    ),
+    div_ap_season_agg AS (
+        SELECT
+            dap.season_year,
+            dap.league_id,
+            dap.home_mgr_id AS manager_id,
+            sum(
+                CASE
+                    WHEN dap.diff > 0::double precision THEN 1
+                    ELSE 0
+                END
+            )::integer AS div_ap_wins,
+            sum(
+                CASE
+                    WHEN dap.diff < 0::double precision THEN 1
+                    ELSE 0
+                END
+            )::integer AS div_ap_losses,
+            sum(
+                CASE
+                    WHEN dap.diff = 0::double precision THEN 1
+                    ELSE 0
+                END
+            )::integer AS div_ap_ties
+        FROM
+            vffl.div_all_play_matchups dap
+        GROUP BY
+            dap.season_year,
+            dap.league_id,
+            dap.home_mgr_id
+    ),
+    ovr_ap_season_agg AS (
+        SELECT
+            oap.season_year,
+            oap.home_league_id AS league_id,
+            oap.home_mgr_id AS manager_id,
+            sum(
+                CASE
+                    WHEN oap.diff > 0::double precision THEN 1
+                    ELSE 0
+                END
+            )::integer AS ovr_ap_wins,
+            sum(
+                CASE
+                    WHEN oap.diff < 0::double precision THEN 1
+                    ELSE 0
+                END
+            )::integer AS ovr_ap_losses,
+            sum(
+                CASE
+                    WHEN oap.diff = 0::double precision THEN 1
+                    ELSE 0
+                END
+            )::integer AS ovr_ap_ties
+        FROM
+            vffl.overall_all_play_matchups oap
+        WHERE
+            oap.home_mgr_id <> oap.away_mgr_id
+        GROUP BY
+            oap.season_year,
+            oap.home_league_id,
+            oap.home_mgr_id
+    ),
+    luck_season_agg AS (
+        SELECT
+            l.season_year,
+            l.league_id,
+            l.manager_id,
+            l.deserved_wins,
+            l.lucky_wins,
+            l.toss_ups,
+            l.unlucky_losses,
+            l.deserved_losses,
+            l.game_luck AS season_luck_score
+        FROM
+            vffl.vw_manager_game_luck l
+        WHERE
+            l.scope = 'SEASON'
+    )
+SELECT
+    t.manager_id,
+    (m.first_name || ' ') || "left" (m.last_name, 1) AS manager_name,
+    t.season_year,
+    t.league_id,
+    ll.league_name,
+    t.team_name,
+    t.team_abbrev,
+    t.logo_url,
+    COALESCE(h.h2h_wins, 0) AS h2h_wins,
+    COALESCE(h.h2h_losses, 0) AS h2h_losses,
+    COALESCE(h.h2h_ties, 0) AS h2h_ties,
+    CASE
+        WHEN COALESCE(h.h2h_ties, 0) > 0 THEN (((COALESCE(h.h2h_wins, 0) || '-') || COALESCE(h.h2h_losses, 0)) || '-') || COALESCE(h.h2h_ties, 0)
+        ELSE (COALESCE(h.h2h_wins, 0) || '-') || COALESCE(h.h2h_losses, 0)
+    END AS h2h_record,
+    COALESCE(
+        round(
+            (
+                COALESCE(h.h2h_wins, 0)::numeric + COALESCE(h.h2h_ties, 0)::numeric * 0.5
+            ) / NULLIF(
+                COALESCE(h.h2h_wins, 0) + COALESCE(h.h2h_losses, 0) + COALESCE(h.h2h_ties, 0),
+                0
+            )::numeric,
+            3
+        )::real,
+        0.0::real
+    ) AS h2h_win_pct,
+    COALESCE(h.points_for, 0.0::real) AS points_for,
+    COALESCE(h.points_against, 0.0::real) AS points_against,
+    COALESCE(h.avg_ppg, 0.0::real) AS avg_ppg,
+    COALESCE(dap.div_ap_wins, 0) AS div_ap_wins,
+    COALESCE(dap.div_ap_losses, 0) AS div_ap_losses,
+    COALESCE(dap.div_ap_ties, 0) AS div_ap_ties,
+    CASE
+        WHEN COALESCE(dap.div_ap_ties, 0) > 0 THEN (((COALESCE(dap.div_ap_wins, 0) || '-') || COALESCE(dap.div_ap_losses, 0)) || '-') || COALESCE(dap.div_ap_ties, 0)
+        ELSE (COALESCE(dap.div_ap_wins, 0) || '-') || COALESCE(dap.div_ap_losses, 0)
+    END AS div_ap_record,
+    COALESCE(
+        round(
+            (
+                COALESCE(dap.div_ap_wins, 0)::numeric + COALESCE(dap.div_ap_ties, 0)::numeric * 0.5
+            ) / NULLIF(
+                COALESCE(dap.div_ap_wins, 0) + COALESCE(dap.div_ap_losses, 0) + COALESCE(dap.div_ap_ties, 0),
+                0
+            )::numeric,
+            3
+        )::real,
+        0.0::real
+    ) AS div_ap_win_pct,
+    CASE
+        WHEN COALESCE(slc.league_count, 1) > 1 THEN COALESCE(oap.ovr_ap_wins, 0)
+        ELSE NULL::integer
+    END AS ovr_ap_wins,
+    CASE
+        WHEN COALESCE(slc.league_count, 1) > 1 THEN COALESCE(oap.ovr_ap_losses, 0)
+        ELSE NULL::integer
+    END AS ovr_ap_losses,
+    CASE
+        WHEN COALESCE(slc.league_count, 1) > 1 THEN COALESCE(oap.ovr_ap_ties, 0)
+        ELSE NULL::integer
+    END AS ovr_ap_ties,
+    CASE
+        WHEN COALESCE(slc.league_count, 1) <= 1 THEN NULL::text
+        WHEN COALESCE(oap.ovr_ap_ties, 0) > 0 THEN (((COALESCE(oap.ovr_ap_wins, 0) || '-') || COALESCE(oap.ovr_ap_losses, 0)) || '-') || COALESCE(oap.ovr_ap_ties, 0)
+        ELSE (COALESCE(oap.ovr_ap_wins, 0) || '-') || COALESCE(oap.ovr_ap_losses, 0)
+    END AS ovr_ap_record,
+    CASE
+        WHEN COALESCE(slc.league_count, 1) <= 1 THEN NULL::real
+        ELSE COALESCE(
+            round(
+                (
+                    COALESCE(oap.ovr_ap_wins, 0)::numeric + COALESCE(oap.ovr_ap_ties, 0)::numeric * 0.5
+                ) / NULLIF(
+                    COALESCE(oap.ovr_ap_wins, 0) + COALESCE(oap.ovr_ap_losses, 0) + COALESCE(oap.ovr_ap_ties, 0),
+                    0
+                )::numeric,
+                3
+            )::real,
+            0.0::real
+        )
+    END AS ovr_ap_win_pct,
+    COALESCE(h.made_playoffs, false) AS made_playoffs,
+    COALESCE(h.is_champion, false) AS is_champion,
+    COALESCE(h.is_runner_up, false) AS is_runner_up,
+    CASE
+        WHEN cs.season_year IS NOT NULL AND h.pf_rank = 1 THEN true
+        ELSE false
+    END AS is_points_title,
+    COALESCE(h.playoff_wins, 0) AS playoff_wins,
+    COALESCE(h.playoff_losses, 0) AS playoff_losses,
+    (COALESCE(h.playoff_wins, 0) || '-') || COALESCE(h.playoff_losses, 0) AS playoff_record,
+    COALESCE(lck.deserved_wins, 0) AS deserved_wins,
+    COALESCE(lck.lucky_wins, 0) AS lucky_wins,
+    COALESCE(lck.toss_ups, 0) AS toss_ups,
+    COALESCE(lck.unlucky_losses, 0) AS unlucky_losses,
+    COALESCE(lck.deserved_losses, 0) AS deserved_losses,
+    COALESCE(lck.season_luck_score, 0.0::real) AS season_luck_score
+FROM
+    vffl.teams t
+    JOIN vffl.managers m ON t.manager_id = m.id
+    JOIN league_lookup ll ON t.league_id = ll.league_id
+    LEFT JOIN season_league_counts slc ON t.season_year = slc.season_year
+    LEFT JOIN completed_seasons cs ON t.season_year = cs.season_year
+    AND t.league_id = cs.league_id
+    LEFT JOIN h2h_season_agg h ON t.season_year = h.season_year
+    AND t.league_id = h.league_id
+    AND t.manager_id = h.manager_id
+    LEFT JOIN div_ap_season_agg dap ON t.season_year = dap.season_year
+    AND t.league_id = dap.league_id
+    AND t.manager_id = dap.manager_id
+    LEFT JOIN ovr_ap_season_agg oap ON t.season_year = oap.season_year
+    AND t.league_id = oap.league_id
+    AND t.manager_id = oap.manager_id
+    LEFT JOIN luck_season_agg lck ON t.season_year = lck.season_year
+    AND t.league_id = lck.league_id
+    AND t.manager_id = lck.manager_id;
