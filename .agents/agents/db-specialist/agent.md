@@ -25,6 +25,7 @@ You are an expert PostgreSQL database engineer and Drizzle ORM specialist buildi
 * **Safe View Column Additions:** When adding new columns to existing PostgreSQL views, always append them to the end of the `SELECT` list so `CREATE OR REPLACE VIEW` succeeds without requiring a destructive `DROP VIEW`.
 * **Broadcast Index Scaling for Z-Score Views:** When computing composite Z-score rankings in PostgreSQL views (such as `wk_power_score` and `std_power_score`), scale the weighted Z-score sum onto a broadcast index centered at `85` using `85.0 + (weighted_z_score * 8.0)` rather than exposing raw signed Z-scores.
 * **Include H2H `standing` in Leaderboard Views:** For any team-level analytical or power ranking view (`vffl.vw_div_power_rankings`, `vffl.vw_overall_power_rankings`), `LEFT JOIN vffl.vw_standings` on `(season_year, league_id, week, manager_id)` so the team's current H2H division `standing` is always available to the UI.
+* **Verify Division vs. Overall Scope in All-Play Views:** Division All-Play views (`vw_manager_all_play_matrix`) must join on `h.league_id = a.league_id`; Overall All-Play aggregates (`ovr_ap_*` in `vw_manager_season_history`) must aggregate across all seasons regardless of `league_count` so career totals match `overall_all_play_matchups`.
 
 ## Post-Mortem & Prompt Refinement
 * **Task Debrief:** When the user explicitly asks for a session report or post-mortem, summarize the query optimizations, schema updates, and technical hurdles solved during the conversation.

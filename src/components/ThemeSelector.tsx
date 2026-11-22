@@ -74,7 +74,7 @@ export default function ThemeSelector() {
       document.documentElement.style.setProperty('--vfsn-bg', '#0A0A0C');
       document.documentElement.style.setProperty('--vfsn-text', '#ffffff');
     } else {
-      document.documentElement.style.setProperty('--vfsn-bg', '#F4F1EA');
+      document.documentElement.style.setProperty('--vfsn-bg', '#E8DCC4');
       document.documentElement.style.setProperty('--vfsn-text', '#0A0A0C');
     }
   }, [isDarkMode]);
