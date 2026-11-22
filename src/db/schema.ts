@@ -839,6 +839,8 @@ export const vfflVwManagerExtremeGames = vffl.view("vw_manager_extreme_games", {
   slotPosition: varchar("slot_position", { length: 10 }),
   nflTeam: varchar("nfl_team", { length: 10 }),
   playerFpts: real("player_fpts"),
+  playerProjFpts: real("player_proj_fpts"),
+  playerMargin: real("player_margin"),
 }).existing();
 
 // 5. Manager Head-to-Head Matrix View

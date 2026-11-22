@@ -137,7 +137,9 @@ WITH
             p."position" AS player_position,
             mr.slot_position,
             n.abbrev AS nfl_team,
-            mr.actual_fpts AS player_fpts
+            mr.actual_fpts AS player_fpts,
+            mr.proj_fpts AS player_proj_fpts,
+            mr.actual_fpts - mr.proj_fpts AS player_margin
         FROM
             vffl.matchup_rosters mr
             JOIN vffl.matchups m ON mr.matchup_id = m.id
@@ -172,7 +174,9 @@ WITH
             NULL::varchar(10) AS player_position,
             NULL::varchar(10) AS slot_position,
             NULL::varchar(10) AS nfl_team,
-            NULL::real AS player_fpts
+            NULL::real AS player_fpts,
+            NULL::real AS player_proj_fpts,
+            NULL::real AS player_margin
         FROM
             ranked_wins rw
         WHERE
@@ -195,7 +199,9 @@ WITH
             NULL::varchar(10) AS player_position,
             NULL::varchar(10) AS slot_position,
             NULL::varchar(10) AS nfl_team,
-            NULL::real AS player_fpts
+            NULL::real AS player_fpts,
+            NULL::real AS player_proj_fpts,
+            NULL::real AS player_margin
         FROM
             ranked_losses rl
         WHERE
@@ -218,7 +224,9 @@ WITH
             sp.player_position,
             sp.slot_position,
             sp.nfl_team,
-            sp.player_fpts
+            sp.player_fpts,
+            sp.player_proj_fpts,
+            sp.player_margin
         FROM
             starter_performances sp
         WHERE
@@ -247,7 +255,9 @@ SELECT
     ce.player_position,
     ce.slot_position,
     ce.nfl_team,
-    round(ce.player_fpts::numeric, 2)::real AS player_fpts
+    round(ce.player_fpts::numeric, 2)::real AS player_fpts,
+    round(ce.player_proj_fpts::numeric, 2)::real AS player_proj_fpts,
+    round(ce.player_margin::numeric, 2)::real AS player_margin
 FROM
     combined_extremes ce
     JOIN vffl.managers mgr ON ce.manager_id = mgr.id

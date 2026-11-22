@@ -167,6 +167,8 @@ const mockExtreme = (
   slotPosition: null,
   nflTeam: null,
   playerFpts: null,
+  playerProjFpts: null,
+  playerMargin: null,
 });
 
 export const MOCK_EXTREME_GAMES: ManagerExtremeGameRow[] = [
