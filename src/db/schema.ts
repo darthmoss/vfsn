@@ -808,6 +808,10 @@ export const vfflVwManagerCareerSummary = vffl.view("vw_manager_career_summary",
   unluckyLosses: integer("unlucky_losses"),
   deservedLosses: integer("deserved_losses"),
   careerLuckScore: real("career_luck_score"),
+
+  // Scope
+  scope: text("scope"),
+  seasonYear: integer("season_year"),
 }).existing();
 
 // 4. Manager Extreme Games (Top 5 Wins & Bottom 5 Losses) View

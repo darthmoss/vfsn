@@ -72,7 +72,10 @@ export default async function ManagerProfilesPage({
 
   const seenManagers = new Set<number>();
   const summaries = (
-    await db.select().from(vfflVwManagerCareerSummary)
+    await db
+      .select()
+      .from(vfflVwManagerCareerSummary)
+      .where(eq(vfflVwManagerCareerSummary.scope, "CAREER"))
   )
     .filter(
       (m): m is ManagerCareerSummaryRow & { managerId: number } => {

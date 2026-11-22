@@ -90,6 +90,8 @@ export const MOCK_CAREER_SUMMARIES: ManagerCareerSummaryRow[] = [
     unluckyLosses: 14,
     deservedLosses: 25,
     careerLuckScore: -2.41,
+    scope: "CAREER",
+    seasonYear: null,
   },
   {
     managerId: 2,
@@ -129,6 +131,8 @@ export const MOCK_CAREER_SUMMARIES: ManagerCareerSummaryRow[] = [
     unluckyLosses: 4,
     deservedLosses: 14,
     careerLuckScore: 1.87,
+    scope: "CAREER",
+    seasonYear: null,
   },
 ];
 
