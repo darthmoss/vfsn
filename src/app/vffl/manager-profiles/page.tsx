@@ -133,6 +133,7 @@ export default async function ManagerProfilesPage({
       .orderBy(desc(vfflVwManagerSeasonHistory.seasonYear)),
   ]);
   const isActive = selected.active ?? false;
+  const dedupedSeasons = dedupeSeasons(seasons);
 
   return (
     <div className={shellClass}>
@@ -177,7 +178,11 @@ export default async function ManagerProfilesPage({
       {/* 2. Side-by-Side Hero & Extreme Games + 3. Side-by-Side Rivalry Ledger & Luck Breakdown */}
       <BroadcastLoader>
         <div className="w-full grid grid-cols-2 gap-8 items-stretch">
-          <ManagerHero summary={selected} />
+          <ManagerHero
+            key={`hero-${selected.managerId}`}
+            summary={selected}
+            seasons={dedupedSeasons}
+          />
           <ExtremeGamesGrid
             key={`extremes-${selected.managerId}`}
             games={extremeGames}
@@ -189,7 +194,7 @@ export default async function ManagerProfilesPage({
             key={`luck-${selected.managerId}`}
             managerId={selected.managerId}
             career={selected}
-            seasons={dedupeSeasons(seasons)}
+            seasons={dedupedSeasons}
           />
         </div>
       </BroadcastLoader>
