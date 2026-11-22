@@ -92,6 +92,8 @@ export const MOCK_CAREER_SUMMARIES: ManagerCareerSummaryRow[] = [
     careerLuckScore: -2.41,
     scope: "CAREER",
     seasonYear: null,
+    ovrPowerScore: 90.42,
+    ovrPowerRank: 4,
   },
   {
     managerId: 2,
@@ -133,6 +135,8 @@ export const MOCK_CAREER_SUMMARIES: ManagerCareerSummaryRow[] = [
     careerLuckScore: 1.87,
     scope: "CAREER",
     seasonYear: null,
+    ovrPowerScore: 79.15,
+    ovrPowerRank: 16,
   },
 ];
 
@@ -292,6 +296,8 @@ const mockSeason = (
   unluckyLosses: luck[3],
   deservedLosses: luck[4],
   seasonLuckScore,
+  ovrPowerScore: 91.2,
+  ovrPowerRank: 3,
 });
 
 export const MOCK_SEASON_HISTORY: ManagerSeasonHistoryRow[] = [

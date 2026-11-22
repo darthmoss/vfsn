@@ -54,7 +54,6 @@ WITH
     deduped_pairings AS (
         SELECT DISTINCT ON (
             h.season_year,
-            h.league_id,
             h.week,
             h.manager_id,
             a.manager_id
@@ -82,12 +81,10 @@ WITH
         FROM
             weekly_scores h
             JOIN weekly_scores a ON h.season_year = a.season_year
-            AND h.league_id = a.league_id
             AND h.week = a.week
             AND h.manager_id <> a.manager_id
         ORDER BY
             h.season_year,
-            h.league_id,
             h.week,
             h.manager_id,
             a.manager_id

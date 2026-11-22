@@ -758,6 +758,10 @@ export const vfflVwManagerSeasonHistory = vffl.view("vw_manager_season_history",
   unluckyLosses: integer("unlucky_losses"),
   deservedLosses: integer("deserved_losses"),
   seasonLuckScore: real("season_luck_score"),
+
+  // Overall Power Ranking
+  ovrPowerScore: real("ovr_power_score"),
+  ovrPowerRank: integer("ovr_power_rank"),
 }).existing();
 
 // 3. Manager Career Summary & Trophy Case View
@@ -812,6 +816,10 @@ export const vfflVwManagerCareerSummary = vffl.view("vw_manager_career_summary",
   // Scope
   scope: text("scope"),
   seasonYear: integer("season_year"),
+
+  // Overall Power Ranking
+  ovrPowerScore: real("ovr_power_score"),
+  ovrPowerRank: integer("ovr_power_rank"),
 }).existing();
 
 // 4. Manager Extreme Games (Top 5 Wins, Bottom 5 Losses & Top 5 Starter Performances by Position) View

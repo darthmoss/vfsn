@@ -243,6 +243,27 @@ WITH
             vffl.vw_manager_game_luck l
         WHERE
             l.scope = 'SEASON'
+    ),
+    season_final_power AS (
+        SELECT DISTINCT ON (
+            pr.season_year,
+            pr.league_id,
+            pr.manager_id
+        )
+            pr.season_year,
+            pr.league_id,
+            pr.manager_id,
+            pr.std_power_score AS ovr_power_score,
+            pr.std_power_rank AS ovr_power_rank
+        FROM
+            vffl.vw_overall_power_rankings pr
+        WHERE
+            pr.week > 0
+        ORDER BY
+            pr.season_year,
+            pr.league_id,
+            pr.manager_id,
+            pr.week DESC
     )
 SELECT
     t.manager_id,
@@ -328,7 +349,9 @@ SELECT
     COALESCE(lck.toss_ups, 0) AS toss_ups,
     COALESCE(lck.unlucky_losses, 0) AS unlucky_losses,
     COALESCE(lck.deserved_losses, 0) AS deserved_losses,
-    COALESCE(lck.season_luck_score, 0.0::real) AS season_luck_score
+    COALESCE(lck.season_luck_score, 0.0::real) AS season_luck_score,
+    COALESCE(sfp.ovr_power_score, 0.0::real) AS ovr_power_score,
+    COALESCE(sfp.ovr_power_rank, 0) AS ovr_power_rank
 FROM
     vffl.teams t
     JOIN vffl.managers m ON t.manager_id = m.id
@@ -347,4 +370,7 @@ FROM
     AND t.manager_id = oap.manager_id
     LEFT JOIN luck_season_agg lck ON t.season_year = lck.season_year
     AND t.league_id = lck.league_id
-    AND t.manager_id = lck.manager_id;
+    AND t.manager_id = lck.manager_id
+    LEFT JOIN season_final_power sfp ON t.season_year = sfp.season_year
+    AND t.league_id = sfp.league_id
+    AND t.manager_id = sfp.manager_id;

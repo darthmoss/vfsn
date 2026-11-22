@@ -58,6 +58,126 @@ WITH
             vffl.vw_manager_game_luck l
         WHERE
             l.scope = 'CAREER'
+    ),
+    season_final_power AS (
+        SELECT DISTINCT ON (
+            pr.season_year,
+            pr.manager_id
+        )
+            pr.season_year,
+            pr.manager_id,
+            pr.std_ap_wins,
+            pr.std_ap_losses,
+            pr.std_ap_ties,
+            pr.std_act_fpts::double precision AS std_act_fpts,
+            pr.std_opt_fpts::double precision AS std_opt_fpts,
+            pr.std_power_score,
+            pr.std_power_rank
+        FROM
+            vffl.vw_overall_power_rankings pr
+        WHERE
+            pr.week > 0
+        ORDER BY
+            pr.season_year,
+            pr.manager_id,
+            pr.week DESC
+    ),
+    career_vol AS (
+        SELECT
+            sg.manager_id,
+            COALESCE(stddev_samp(sg.pf), 0.0::double precision) AS career_perf_var
+        FROM
+            scored_games sg
+        GROUP BY
+            sg.manager_id
+    ),
+    career_power_metrics AS (
+        SELECT
+            sfp.manager_id,
+            sum(sfp.std_ap_wins)::double precision AS c_ap_wins,
+            sum(sfp.std_ap_losses)::double precision AS c_ap_losses,
+            sum(sfp.std_ap_ties)::double precision AS c_ap_ties,
+            COALESCE(
+                (
+                    sum(sfp.std_ap_wins)::double precision + (sum(sfp.std_ap_ties)::double precision * 0.5::double precision)
+                ) / NULLIF(
+                    (sum(sfp.std_ap_wins) + sum(sfp.std_ap_losses) + sum(sfp.std_ap_ties))::double precision,
+                    0.0::double precision
+                ),
+                0.0::double precision
+            ) AS c_ap_win_pct,
+            COALESCE(
+                sum(sfp.std_act_fpts)::double precision / NULLIF(cp.total_games_scored::double precision, 0.0::double precision),
+                0.0::double precision
+            ) AS c_act_fpts,
+            COALESCE(
+                sum(sfp.std_opt_fpts)::double precision / NULLIF(cp.total_games_scored::double precision, 0.0::double precision),
+                0.0::double precision
+            ) AS c_opt_fpts,
+            COALESCE(
+                sum(sfp.std_act_fpts)::double precision / NULLIF(sum(sfp.std_opt_fpts)::double precision, 0.0::double precision),
+                0.0::double precision
+            ) AS c_eff_pct,
+            COALESCE(cv.career_perf_var, 0.0::double precision) AS c_perf_var
+        FROM
+            season_final_power sfp
+            LEFT JOIN career_vol cv ON sfp.manager_id = cv.manager_id
+            LEFT JOIN career_ppg cp ON sfp.manager_id = cp.manager_id
+        GROUP BY
+            sfp.manager_id,
+            cv.career_perf_var,
+            cp.total_games_scored
+    ),
+    career_power_z AS (
+        SELECT
+            cpm.manager_id,
+            cpm.c_act_fpts,
+            COALESCE(
+                (cpm.c_ap_win_pct - avg(cpm.c_ap_win_pct) OVER ()) / NULLIF(stddev_samp(cpm.c_ap_win_pct) OVER (), 0.0::double precision),
+                0.0::double precision
+            ) AS ap_z,
+            COALESCE(
+                (cpm.c_act_fpts - avg(cpm.c_act_fpts) OVER ()) / NULLIF(stddev_samp(cpm.c_act_fpts) OVER (), 0.0::double precision),
+                0.0::double precision
+            ) AS act_z,
+            COALESCE(
+                (cpm.c_opt_fpts - avg(cpm.c_opt_fpts) OVER ()) / NULLIF(stddev_samp(cpm.c_opt_fpts) OVER (), 0.0::double precision),
+                0.0::double precision
+            ) AS opt_z,
+            COALESCE(
+                (cpm.c_eff_pct - avg(cpm.c_eff_pct) OVER ()) / NULLIF(stddev_samp(cpm.c_eff_pct) OVER (), 0.0::double precision),
+                0.0::double precision
+            ) AS eff_z,
+            COALESCE(
+                (cpm.c_perf_var - avg(cpm.c_perf_var) OVER ()) / NULLIF(stddev_samp(cpm.c_perf_var) OVER (), 0.0::double precision),
+                0.0::double precision
+            ) AS perf_z
+        FROM
+            career_power_metrics cpm
+    ),
+    career_power_scored AS (
+        SELECT
+            cpz.manager_id,
+            cpz.c_act_fpts,
+            85.0::double precision + (
+                (
+                    (cpz.ap_z * 0.45::double precision) + (cpz.act_z * 0.30::double precision) + (cpz.eff_z * 0.10::double precision) + (cpz.perf_z * 0.10::double precision) + (cpz.opt_z * 0.05::double precision)
+                ) * 8.0::double precision
+            ) AS raw_power_score
+        FROM
+            career_power_z cpz
+    ),
+    career_power_ranked AS (
+        SELECT
+            cps.manager_id,
+            round(cps.raw_power_score::numeric, 4)::real AS ovr_power_score,
+            rank() OVER (
+                ORDER BY
+                    cps.raw_power_score DESC,
+                    cps.c_act_fpts DESC
+            )::integer AS ovr_power_rank
+        FROM
+            career_power_scored cps
     )
 SELECT
     m.id AS manager_id,
@@ -163,19 +283,24 @@ SELECT
     COALESCE(sum(sh.deserved_losses), 0)::integer AS deserved_losses,
     COALESCE(cle.career_luck_score, 0.0::real) AS career_luck_score,
     'CAREER'::text AS scope,
-    NULL::integer AS season_year
+    NULL::integer AS season_year,
+    COALESCE(cpr.ovr_power_score, 0.0::real) AS ovr_power_score,
+    COALESCE(cpr.ovr_power_rank, 0) AS ovr_power_rank
 FROM
     vffl.managers m
     LEFT JOIN vffl.vw_manager_season_history sh ON m.id = sh.manager_id
     LEFT JOIN career_ppg cp ON m.id = cp.manager_id
     LEFT JOIN career_luck_exact cle ON m.id = cle.manager_id
+    LEFT JOIN career_power_ranked cpr ON m.id = cpr.manager_id
 GROUP BY
     m.id,
     m.first_name,
     m.last_name,
     m.active,
     cp.avg_ppg,
-    cle.career_luck_score
+    cle.career_luck_score,
+    cpr.ovr_power_score,
+    cpr.ovr_power_rank
 UNION ALL
 SELECT
     m.id AS manager_id,
@@ -281,16 +406,22 @@ SELECT
     COALESCE(sum(sh.deserved_losses), 0)::integer AS deserved_losses,
     round(COALESCE(sum(sh.season_luck_score), 0::real)::numeric, 2)::real AS career_luck_score,
     'SEASON'::text AS scope,
-    sh.season_year
+    sh.season_year,
+    COALESCE(sfp.std_power_score, 0.0::real) AS ovr_power_score,
+    COALESCE(sfp.std_power_rank, 0) AS ovr_power_rank
 FROM
     vffl.managers m
     JOIN vffl.vw_manager_season_history sh ON m.id = sh.manager_id
     LEFT JOIN season_ppg sp ON m.id = sp.manager_id
     AND sh.season_year = sp.season_year
+    LEFT JOIN season_final_power sfp ON m.id = sfp.manager_id
+    AND sh.season_year = sfp.season_year
 GROUP BY
     m.id,
     m.first_name,
     m.last_name,
     m.active,
     sh.season_year,
-    sp.avg_ppg;
+    sp.avg_ppg,
+    sfp.std_power_score,
+    sfp.std_power_rank;
