@@ -40,7 +40,7 @@ export type ProfileTab = "h2h" | "all-play";
 
 export const PROFILE_TABS: { id: ProfileTab; label: string }[] = [
   { id: "h2h", label: "Head-to-Head" },
-  { id: "all-play", label: "Division All-Play" },
+  { id: "all-play", label: "All-Play" },
 ];
 
 export function parseProfileTab(raw: string | undefined): ProfileTab {

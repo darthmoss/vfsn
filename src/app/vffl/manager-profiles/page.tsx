@@ -1,6 +1,7 @@
-import { asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, or } from "drizzle-orm";
 import { db } from "@/db";
 import {
+  vfflMatchups,
   vfflVwManagerAllPlayMatrix,
   vfflVwManagerCareerSummary,
   vfflVwManagerExtremeGames,
@@ -119,21 +120,113 @@ export default async function ManagerProfilesPage({
     active: m.active,
   }));
 
-  const [extremeGames, rivalryCard, seasons] = await Promise.all([
-    db
-      .select()
-      .from(vfflVwManagerExtremeGames)
-      .where(eq(vfflVwManagerExtremeGames.managerId, selected.managerId))
-      .orderBy(asc(vfflVwManagerExtremeGames.rank)),
-    renderRivalryCard(activeTab, selected.managerId),
-    db
-      .select()
-      .from(vfflVwManagerSeasonHistory)
-      .where(eq(vfflVwManagerSeasonHistory.managerId, selected.managerId))
-      .orderBy(desc(vfflVwManagerSeasonHistory.seasonYear)),
-  ]);
+  const [extremeGames, rivalryCard, seasons, rankedSeasonEntries, playoffGames] =
+    await Promise.all([
+      db
+        .select()
+        .from(vfflVwManagerExtremeGames)
+        .where(eq(vfflVwManagerExtremeGames.managerId, selected.managerId))
+        .orderBy(asc(vfflVwManagerExtremeGames.rank)),
+      renderRivalryCard(activeTab, selected.managerId),
+      db
+        .select()
+        .from(vfflVwManagerSeasonHistory)
+        .where(eq(vfflVwManagerSeasonHistory.managerId, selected.managerId))
+        .orderBy(desc(vfflVwManagerSeasonHistory.seasonYear)),
+      db
+        .select({
+          seasonYear: vfflVwManagerSeasonHistory.seasonYear,
+          leagueId: vfflVwManagerSeasonHistory.leagueId,
+          managerId: vfflVwManagerSeasonHistory.managerId,
+        })
+        .from(vfflVwManagerSeasonHistory)
+        .where(gt(vfflVwManagerSeasonHistory.ovrPowerRank, 0)),
+      db
+        .select({
+          seasonYear: vfflMatchups.seasonYear,
+          matchupType: vfflMatchups.matchupType,
+          homeManagerId: vfflMatchups.homeManagerId,
+          awayManagerId: vfflMatchups.awayManagerId,
+          homeScore: vfflMatchups.homeScore,
+          awayScore: vfflMatchups.awayScore,
+        })
+        .from(vfflMatchups)
+        .where(
+          and(
+            or(
+              eq(vfflMatchups.homeManagerId, selected.managerId),
+              eq(vfflMatchups.awayManagerId, selected.managerId)
+            ),
+            inArray(vfflMatchups.matchupType, [
+              "Championship",
+              "Money Game",
+              "Consolation",
+              "Semifinals",
+              "Wild Card",
+            ])
+          )
+        ),
+    ]);
   const isActive = selected.active ?? false;
   const dedupedSeasons = dedupeSeasons(seasons);
+
+  const playoffGamesByYear = new Map<number, typeof playoffGames>();
+  for (const g of playoffGames) {
+    const list = playoffGamesByYear.get(g.seasonYear) ?? [];
+    list.push(g);
+    playoffGamesByYear.set(g.seasonYear, list);
+  }
+
+  const playoffFinishes: Record<number, string> = {};
+  for (const [year, games] of playoffGamesByYear) {
+    const didWin = (g: (typeof playoffGames)[number]) => {
+      if (g.homeScore === null || g.awayScore === null) return null;
+      const isHome = g.homeManagerId === selected.managerId;
+      const myScore = isHome ? g.homeScore : g.awayScore;
+      const oppScore = isHome ? g.awayScore : g.homeScore;
+      if (myScore === oppScore) return null;
+      return myScore > oppScore;
+    };
+
+    const champ = games.find((g) => g.matchupType === "Championship");
+    if (champ) {
+      const won = didWin(champ);
+      playoffFinishes[year] = won === true ? "1st" : won === false ? "2nd" : "Finals";
+      continue;
+    }
+    const thirdPlace = games.find((g) => g.matchupType === "Money Game");
+    if (thirdPlace) {
+      const won = didWin(thirdPlace);
+      playoffFinishes[year] = won === true ? "3rd" : won === false ? "4th" : "3rd/4th";
+      continue;
+    }
+    const consolation = games.find((g) => g.matchupType === "Consolation");
+    if (consolation) {
+      const won = didWin(consolation);
+      playoffFinishes[year] = won === true ? "5th" : won === false ? "6th" : "5th/6th";
+      continue;
+    }
+    if (games.some((g) => g.matchupType === "Semifinals")) {
+      playoffFinishes[year] = "Semifinals";
+    } else if (games.some((g) => g.matchupType === "Wild Card")) {
+      playoffFinishes[year] = "Wild Card";
+    }
+  }
+
+  const careerPowerTotal = summaries.filter(
+    (m) => (m.ovrPowerRank ?? 0) > 0
+  ).length;
+
+  const seasonPowerTotals: Record<number, number> = {};
+  const seenSeasonEntries = new Set<string>();
+  for (const row of rankedSeasonEntries) {
+    if (row.seasonYear === null || row.managerId === null) continue;
+    const key = `${row.seasonYear}-${row.leagueId ?? 0}-${row.managerId}`;
+    if (seenSeasonEntries.has(key)) continue;
+    seenSeasonEntries.add(key);
+    seasonPowerTotals[row.seasonYear] =
+      (seasonPowerTotals[row.seasonYear] ?? 0) + 1;
+  }
 
   return (
     <div className={shellClass}>
@@ -182,6 +275,9 @@ export default async function ManagerProfilesPage({
             key={`hero-${selected.managerId}`}
             summary={selected}
             seasons={dedupedSeasons}
+            careerPowerTotal={careerPowerTotal}
+            seasonPowerTotals={seasonPowerTotals}
+            playoffFinishes={playoffFinishes}
           />
           <ExtremeGamesGrid
             key={`extremes-${selected.managerId}`}

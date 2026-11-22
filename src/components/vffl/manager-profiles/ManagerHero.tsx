@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import type {
   ManagerCareerSummaryRow,
   ManagerSeasonHistoryRow,
@@ -10,6 +10,7 @@ import {
   CARD_STYLE,
   HIGHLIGHT,
   INSET_BG,
+  TEXT,
   fmtCount,
   fmtPts,
   fmtWinPct,
@@ -21,7 +22,7 @@ type SeasonRow = ManagerSeasonHistoryRow & { seasonYear: number };
 interface YearStatRow {
   year: number;
   value: string;
-  secondary?: string;
+  secondary?: ReactNode;
 }
 
 function ExpandableStatTile({
@@ -30,12 +31,14 @@ function ExpandableStatTile({
   yearRows,
   open,
   onToggle,
+  emphasize = false,
 }: {
   label: string;
   value: string;
   yearRows: YearStatRow[];
   open: boolean;
   onToggle: () => void;
+  emphasize?: boolean;
 }) {
   const hasYears = yearRows.length > 0;
 
@@ -63,7 +66,10 @@ function ExpandableStatTile({
             </span>
           )}
         </div>
-        <span className="text-xl font-black tabular-nums tracking-tight truncate">
+        <span
+          className="text-xl font-black tabular-nums tracking-tight truncate"
+          style={emphasize ? { color: HIGHLIGHT } : undefined}
+        >
           {value}
         </span>
       </button>
@@ -87,15 +93,15 @@ function ExpandableStatTile({
 
 function ExpandableRecordTile({
   label,
-  record,
-  winPct,
+  primary,
+  secondary,
   yearRows,
   open,
   onToggle,
 }: {
   label: string;
-  record: string;
-  winPct: string;
+  primary: string;
+  secondary: ReactNode;
   yearRows: YearStatRow[];
   open: boolean;
   onToggle: () => void;
@@ -128,13 +134,13 @@ function ExpandableRecordTile({
         </div>
         <div className="w-full flex flex-row items-baseline justify-between gap-3">
           <span className="text-xl font-black tabular-nums tracking-tight truncate">
-            {record}
+            {primary}
           </span>
           <span
             className="text-xl font-black tabular-nums tracking-tight shrink-0"
             style={{ color: HIGHLIGHT }}
           >
-            {winPct}
+            {secondary}
           </span>
         </div>
       </button>
@@ -196,9 +202,15 @@ function StatTile({
 export default function ManagerHero({
   summary,
   seasons,
+  careerPowerTotal = 0,
+  seasonPowerTotals = {},
+  playoffFinishes = {},
 }: {
   summary: ManagerCareerSummaryRow;
   seasons: SeasonRow[];
+  careerPowerTotal?: number;
+  seasonPowerTotals?: Record<number, number>;
+  playoffFinishes?: Record<number, string>;
 }) {
   const [openTiles, setOpenTiles] = useState<Record<string, boolean>>({});
   const toggleTile = (key: string) =>
@@ -214,6 +226,52 @@ export default function ManagerHero({
 
   const seasonGameCount = (s: SeasonRow) =>
     (s.h2hWins ?? 0) + (s.h2hLosses ?? 0) + (s.h2hTies ?? 0);
+
+  const playoffTripRows: YearStatRow[] = seasons
+    .filter((s) => s.madePlayoffs)
+    .map((s) => ({
+      year: s.seasonYear,
+      value:
+        playoffFinishes[s.seasonYear] ??
+        (s.isChampion ? "1st" : s.isRunnerUp ? "2nd" : "Playoffs"),
+    }));
+
+  const playoffRecordRows: YearStatRow[] = seasons
+    .filter(
+      (s) =>
+        s.madePlayoffs || (s.playoffWins ?? 0) + (s.playoffLosses ?? 0) > 0
+    )
+    .map((s) => {
+      const pw = s.playoffWins ?? 0;
+      const pl = s.playoffLosses ?? 0;
+      const total = pw + pl;
+      return {
+        year: s.seasonYear,
+        value: s.playoffRecord ?? "—",
+        secondary: total > 0 ? fmtWinPct(pw / total) : "—",
+      };
+    });
+
+  const championshipRows: YearStatRow[] = seasons
+    .filter((s) => s.isChampion)
+    .map((s) => ({
+      year: s.seasonYear,
+      value: s.teamName ?? "Champion",
+    }));
+
+  const runnerUpRows: YearStatRow[] = seasons
+    .filter((s) => s.isRunnerUp)
+    .map((s) => ({
+      year: s.seasonYear,
+      value: s.teamName ?? "Runner-Up",
+    }));
+
+  const pointsTitleRows: YearStatRow[] = seasons
+    .filter((s) => s.isPointsTitle)
+    .map((s) => ({
+      year: s.seasonYear,
+      value: fmtPts(s.pointsFor),
+    }));
 
   const pfRows: YearStatRow[] = seasons.map((s) => ({
     year: s.seasonYear,
@@ -258,37 +316,127 @@ export default function ManagerHero({
     secondary: fmtWinPct(s.ovrApWinPct, "N/A"),
   }));
 
+  const hasCareerPower = (summary.ovrPowerRank ?? 0) > 0;
+  const powerRows: YearStatRow[] = seasons.map((s) => {
+    const hasPower = (s.ovrPowerRank ?? 0) > 0;
+    const totalForYear = seasonPowerTotals[s.seasonYear] ?? 0;
+    return {
+      year: s.seasonYear,
+      value: hasPower ? fmtPts(s.ovrPowerScore) : "—",
+      secondary: hasPower ? (
+        <>
+          {`#${s.ovrPowerRank}`}
+          {totalForYear > 0 && (
+            <span
+              className="opacity-60 font-semibold ml-1"
+              style={{ color: TEXT }}
+            >
+              {`/ ${totalForYear}`}
+            </span>
+          )}
+        </>
+      ) : (
+        "—"
+      ),
+    };
+  });
+
   return (
     <section
       className={`${CARD_CLASS} w-full h-full flex flex-col`}
       style={CARD_STYLE}
     >
-      <CardHeader eyebrow="All-Time Resume" title="Career Snapshot" />
+      <CardHeader
+        eyebrow="All-Time Resume"
+        title="Career Snapshot"
+        right={
+          <div
+            className="inline-flex items-baseline gap-2 px-3 py-1.5 rounded-lg border border-[var(--vfsn-border)] shrink-0"
+            style={{ backgroundColor: INSET_BG }}
+          >
+            <span className="text-sm font-black tabular-nums tracking-tight">
+              {fmtCount(summary.totalSeasons)}
+            </span>
+            <span className="text-[10px] font-black uppercase tracking-[0.14em] opacity-65">
+              {summary.totalSeasons === 1 ? "Season" : "Seasons"}
+            </span>
+          </div>
+        }
+      />
 
       <div className="flex-1 flex flex-col justify-between gap-4">
-        {/* Row 1: Seasons | Points Titles | Playoff Trips */}
-        <div className="grid grid-cols-3 gap-4">
-          <StatTile label="Seasons" value={fmtCount(summary.totalSeasons)} />
-          <StatTile
-            label="Points Titles"
-            value={fmtCount(summary.pointsTitles)}
-            emphasize
+        {/* Row 1: Playoff Trips | Playoff Record | Championships | Runner-Ups */}
+        <div className="grid grid-cols-4 gap-4 items-start">
+          <ExpandableStatTile
+            label="Playoff Trips"
+            value={fmtCount(summary.playoffTrips)}
+            yearRows={playoffTripRows}
+            open={!!openTiles.playoffTrips}
+            onToggle={() => toggleTile("playoffTrips")}
           />
-          <StatTile label="Playoff Trips" value={fmtCount(summary.playoffTrips)} />
-        </div>
-
-        {/* Row 2: Playoff Record | Championships | Runner-Ups */}
-        <div className="grid grid-cols-3 gap-4">
-          <StatTile
+          <ExpandableRecordTile
             label="Playoff Record"
-            value={summary.playoffRecord ?? "—"}
+            primary={summary.playoffRecord ?? "—"}
+            secondary={fmtWinPct(summary.playoffWinPct)}
+            yearRows={playoffRecordRows}
+            open={!!openTiles.playoffRecord}
+            onToggle={() => toggleTile("playoffRecord")}
           />
-          <StatTile
+          <ExpandableStatTile
             label="Championships"
             value={fmtCount(summary.championships)}
+            yearRows={championshipRows}
+            open={!!openTiles.championships}
+            onToggle={() => toggleTile("championships")}
             emphasize
           />
-          <StatTile label="Runner-Ups" value={fmtCount(summary.runnerUps)} />
+          <ExpandableStatTile
+            label="Runner-Ups"
+            value={fmtCount(summary.runnerUps)}
+            yearRows={runnerUpRows}
+            open={!!openTiles.runnerUps}
+            onToggle={() => toggleTile("runnerUps")}
+          />
+        </div>
+
+        {/* Row 2: Points Titles | Avg PF / Season | Power Score */}
+        <div className="grid grid-cols-3 gap-4 items-start">
+          <ExpandableStatTile
+            label="Points Titles"
+            value={fmtCount(summary.pointsTitles)}
+            yearRows={pointsTitleRows}
+            open={!!openTiles.pointsTitles}
+            onToggle={() => toggleTile("pointsTitles")}
+            emphasize
+          />
+          <StatTile
+            label="Avg PF / Season"
+            value={fmtPts(summary.avgPfPerSeason)}
+          />
+          <ExpandableRecordTile
+            label="Power Score"
+            primary={hasCareerPower ? fmtPts(summary.ovrPowerScore) : "—"}
+            secondary={
+              hasCareerPower ? (
+                <>
+                  {`#${summary.ovrPowerRank}`}
+                  {careerPowerTotal > 0 && (
+                    <span
+                      className="text-sm font-bold opacity-60 ml-1"
+                      style={{ color: TEXT }}
+                    >
+                      {`/ ${careerPowerTotal}`}
+                    </span>
+                  )}
+                </>
+              ) : (
+                "—"
+              )
+            }
+            yearRows={powerRows}
+            open={!!openTiles.power}
+            onToggle={() => toggleTile("power")}
+          />
         </div>
 
         {/* Row 3: Total Points For | Total Points Against | Avg Points For | Avg Points Against */}
@@ -327,24 +475,24 @@ export default function ManagerHero({
         <div className="grid grid-cols-3 gap-4 items-start">
           <ExpandableRecordTile
             label="Head-to-Head"
-            record={summary.h2hRecord ?? "—"}
-            winPct={fmtWinPct(summary.h2hWinPct)}
+            primary={summary.h2hRecord ?? "—"}
+            secondary={fmtWinPct(summary.h2hWinPct)}
             yearRows={h2hRows}
             open={!!openTiles.h2h}
             onToggle={() => toggleTile("h2h")}
           />
           <ExpandableRecordTile
             label="Division All-Play"
-            record={summary.divApRecord ?? "N/A"}
-            winPct={fmtWinPct(summary.divApWinPct, "N/A")}
+            primary={summary.divApRecord ?? "N/A"}
+            secondary={fmtWinPct(summary.divApWinPct, "N/A")}
             yearRows={divApRows}
             open={!!openTiles.divAp}
             onToggle={() => toggleTile("divAp")}
           />
           <ExpandableRecordTile
             label="Overall All-Play"
-            record={hasOverall ? (summary.ovrApRecord ?? "N/A") : "N/A"}
-            winPct={hasOverall ? fmtWinPct(summary.ovrApWinPct, "N/A") : "N/A"}
+            primary={hasOverall ? (summary.ovrApRecord ?? "N/A") : "N/A"}
+            secondary={hasOverall ? fmtWinPct(summary.ovrApWinPct, "N/A") : "N/A"}
             yearRows={ovrApRows}
             open={!!openTiles.ovrAp}
             onToggle={() => toggleTile("ovrAp")}
