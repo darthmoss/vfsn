@@ -223,8 +223,6 @@ WITH
             )::integer AS ovr_ap_ties
         FROM
             vffl.overall_all_play_matchups oap
-        WHERE
-            oap.home_mgr_id <> oap.away_mgr_id
         GROUP BY
             oap.season_year,
             oap.home_league_id,
@@ -296,38 +294,25 @@ SELECT
         )::real,
         0.0::real
     ) AS div_ap_win_pct,
+    COALESCE(oap.ovr_ap_wins, 0) AS ovr_ap_wins,
+    COALESCE(oap.ovr_ap_losses, 0) AS ovr_ap_losses,
+    COALESCE(oap.ovr_ap_ties, 0) AS ovr_ap_ties,
     CASE
-        WHEN COALESCE(slc.league_count, 1) > 1 THEN COALESCE(oap.ovr_ap_wins, 0)
-        ELSE NULL::integer
-    END AS ovr_ap_wins,
-    CASE
-        WHEN COALESCE(slc.league_count, 1) > 1 THEN COALESCE(oap.ovr_ap_losses, 0)
-        ELSE NULL::integer
-    END AS ovr_ap_losses,
-    CASE
-        WHEN COALESCE(slc.league_count, 1) > 1 THEN COALESCE(oap.ovr_ap_ties, 0)
-        ELSE NULL::integer
-    END AS ovr_ap_ties,
-    CASE
-        WHEN COALESCE(slc.league_count, 1) <= 1 THEN NULL::text
         WHEN COALESCE(oap.ovr_ap_ties, 0) > 0 THEN (((COALESCE(oap.ovr_ap_wins, 0) || '-') || COALESCE(oap.ovr_ap_losses, 0)) || '-') || COALESCE(oap.ovr_ap_ties, 0)
         ELSE (COALESCE(oap.ovr_ap_wins, 0) || '-') || COALESCE(oap.ovr_ap_losses, 0)
     END AS ovr_ap_record,
-    CASE
-        WHEN COALESCE(slc.league_count, 1) <= 1 THEN NULL::real
-        ELSE COALESCE(
-            round(
-                (
-                    COALESCE(oap.ovr_ap_wins, 0)::numeric + COALESCE(oap.ovr_ap_ties, 0)::numeric * 0.5
-                ) / NULLIF(
-                    COALESCE(oap.ovr_ap_wins, 0) + COALESCE(oap.ovr_ap_losses, 0) + COALESCE(oap.ovr_ap_ties, 0),
-                    0
-                )::numeric,
-                3
-            )::real,
-            0.0::real
-        )
-    END AS ovr_ap_win_pct,
+    COALESCE(
+        round(
+            (
+                COALESCE(oap.ovr_ap_wins, 0)::numeric + COALESCE(oap.ovr_ap_ties, 0)::numeric * 0.5
+            ) / NULLIF(
+                COALESCE(oap.ovr_ap_wins, 0) + COALESCE(oap.ovr_ap_losses, 0) + COALESCE(oap.ovr_ap_ties, 0),
+                0
+            )::numeric,
+            3
+        )::real,
+        0.0::real
+    ) AS ovr_ap_win_pct,
     COALESCE(h.made_playoffs, false) AS made_playoffs,
     COALESCE(h.is_champion, false) AS is_champion,
     COALESCE(h.is_runner_up, false) AS is_runner_up,
