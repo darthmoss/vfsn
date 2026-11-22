@@ -97,6 +97,63 @@ WITH
         WHERE
             g.margin < 0::real
     ),
+    starter_performances AS (
+        SELECT
+            mr.manager_id,
+            ('TOP_' || replace(p."position", '/', ''))::text AS category,
+            row_number() OVER (
+                PARTITION BY
+                    mr.manager_id,
+                    p."position"
+                ORDER BY
+                    mr.actual_fpts DESC,
+                    COALESCE(mr.proj_fpts, 0::real) DESC,
+                    m.season_year DESC,
+                    m.week DESC,
+                    mr.id DESC
+            )::integer AS rank,
+            m.season_year,
+            m.week,
+            m.league_id,
+            m.matchup_type,
+            CASE
+                WHEN mr.manager_id = m.home_manager_id THEN m.away_manager_id
+                ELSE m.home_manager_id
+            END AS opponent_id,
+            CASE
+                WHEN mr.manager_id = m.home_manager_id THEN m.home_score
+                ELSE m.away_score
+            END AS points_for,
+            CASE
+                WHEN mr.manager_id = m.home_manager_id THEN m.away_score
+                ELSE m.home_score
+            END AS points_against,
+            CASE
+                WHEN mr.manager_id = m.home_manager_id THEN m.home_score - m.away_score
+                ELSE m.away_score - m.home_score
+            END AS margin,
+            mr.player_id,
+            p.name AS player_name,
+            p."position" AS player_position,
+            mr.slot_position,
+            n.abbrev AS nfl_team,
+            mr.actual_fpts AS player_fpts
+        FROM
+            vffl.matchup_rosters mr
+            JOIN vffl.matchups m ON mr.matchup_id = m.id
+            JOIN vffl.players p ON mr.player_id = p.id
+            LEFT JOIN vffl.nfl n ON p.nfl_id = n.id
+        WHERE
+            m.week > 0
+            AND m.home_manager_id IS NOT NULL
+            AND m.away_manager_id IS NOT NULL
+            AND m.home_score IS NOT NULL
+            AND m.away_score IS NOT NULL
+            AND mr.manager_id IN (m.home_manager_id, m.away_manager_id)
+            AND mr.slot_position NOT IN ('BE', 'Bench', 'IR', '20', '21')
+            AND p."position" IN ('QB', 'RB', 'WR', 'TE', 'K', 'D/ST')
+            AND mr.actual_fpts IS NOT NULL
+    ),
     combined_extremes AS (
         SELECT
             rw.manager_id,
@@ -109,7 +166,13 @@ WITH
             rw.opponent_id,
             rw.points_for,
             rw.points_against,
-            rw.margin
+            rw.margin,
+            NULL::integer AS player_id,
+            NULL::varchar(255) AS player_name,
+            NULL::varchar(10) AS player_position,
+            NULL::varchar(10) AS slot_position,
+            NULL::varchar(10) AS nfl_team,
+            NULL::real AS player_fpts
         FROM
             ranked_wins rw
         WHERE
@@ -126,11 +189,40 @@ WITH
             rl.opponent_id,
             rl.points_for,
             rl.points_against,
-            rl.margin
+            rl.margin,
+            NULL::integer AS player_id,
+            NULL::varchar(255) AS player_name,
+            NULL::varchar(10) AS player_position,
+            NULL::varchar(10) AS slot_position,
+            NULL::varchar(10) AS nfl_team,
+            NULL::real AS player_fpts
         FROM
             ranked_losses rl
         WHERE
             rl.rank <= 5
+        UNION ALL
+        SELECT
+            sp.manager_id,
+            sp.category,
+            sp.rank,
+            sp.season_year,
+            sp.week,
+            sp.league_id,
+            sp.matchup_type,
+            sp.opponent_id,
+            sp.points_for,
+            sp.points_against,
+            sp.margin,
+            sp.player_id,
+            sp.player_name,
+            sp.player_position,
+            sp.slot_position,
+            sp.nfl_team,
+            sp.player_fpts
+        FROM
+            starter_performances sp
+        WHERE
+            sp.rank <= 5
     )
 SELECT
     ce.manager_id,
@@ -149,7 +241,13 @@ SELECT
     ot.logo_url AS opponent_logo_url,
     round(ce.points_for::numeric, 2)::real AS points_for,
     round(ce.points_against::numeric, 2)::real AS points_against,
-    round(ce.margin::numeric, 2)::real AS margin
+    round(ce.margin::numeric, 2)::real AS margin,
+    ce.player_id,
+    ce.player_name,
+    ce.player_position,
+    ce.slot_position,
+    ce.nfl_team,
+    round(ce.player_fpts::numeric, 2)::real AS player_fpts
 FROM
     combined_extremes ce
     JOIN vffl.managers mgr ON ce.manager_id = mgr.id

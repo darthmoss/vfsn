@@ -161,6 +161,12 @@ const mockExtreme = (
   pointsFor,
   pointsAgainst,
   margin: Math.round((pointsFor - pointsAgainst) * 100) / 100,
+  playerId: null,
+  playerName: null,
+  playerPosition: null,
+  slotPosition: null,
+  nflTeam: null,
+  playerFpts: null,
 });
 
 export const MOCK_EXTREME_GAMES: ManagerExtremeGameRow[] = [

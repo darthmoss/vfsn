@@ -814,7 +814,7 @@ export const vfflVwManagerCareerSummary = vffl.view("vw_manager_career_summary",
   seasonYear: integer("season_year"),
 }).existing();
 
-// 4. Manager Extreme Games (Top 5 Wins & Bottom 5 Losses) View
+// 4. Manager Extreme Games (Top 5 Wins, Bottom 5 Losses & Top 5 Starter Performances by Position) View
 export const vfflVwManagerExtremeGames = vffl.view("vw_manager_extreme_games", {
   managerId: integer("manager_id"),
   managerName: text("manager_name"),
@@ -833,6 +833,12 @@ export const vfflVwManagerExtremeGames = vffl.view("vw_manager_extreme_games", {
   pointsFor: real("points_for"),
   pointsAgainst: real("points_against"),
   margin: real("margin"),
+  playerId: integer("player_id"),
+  playerName: varchar("player_name", { length: 255 }),
+  playerPosition: varchar("player_position", { length: 10 }),
+  slotPosition: varchar("slot_position", { length: 10 }),
+  nflTeam: varchar("nfl_team", { length: 10 }),
+  playerFpts: real("player_fpts"),
 }).existing();
 
 // 5. Manager Head-to-Head Matrix View
