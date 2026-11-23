@@ -304,6 +304,80 @@ export const vfflPlayerStats = vffl.table("player_stats", {
   statPoints: real("stat_points"),
 });
 
+// The Pivoted Weekly Player Stats View (Who Should I Start / Player Comparison)
+export const vfflVwPlayerStats = vffl.view("vw_player_stats", {
+  seasonYear: integer("season_year"),
+  week: integer("week"),
+  playerId: integer("player_id"),
+  playerName: varchar("player_name", { length: 255 }),
+  position: varchar("position", { length: 10 }),
+  nflId: integer("nfl_id"),
+  nflAbbrev: varchar("nfl_abbrev", { length: 10 }),
+  nflLocation: varchar("nfl_location", { length: 255 }),
+  nflName: varchar("nfl_name", { length: 255 }),
+  opponentId: integer("opponent_id"),
+  opponentAbbrev: varchar("opponent_abbrev", { length: 10 }),
+
+  // All Positions
+  actualFpts: real("actual_fpts"),
+
+  // QB & Rushing
+  passCmp: real("pass_cmp"),
+  passAtt: real("pass_att"),
+  cmpPct: real("cmp_pct"),
+  passYds: real("pass_yds"),
+  avgPassYds: real("avg_pass_yds"),
+  passTd: real("pass_td"),
+  rushAtt: real("rush_att"),
+  rushYds: real("rush_yds"),
+  avgRushYds: real("avg_rush_yds"),
+  rushTd: real("rush_td"),
+
+  // RB / WR / TE
+  rushShare: real("rush_share"),
+  rec: real("rec"),
+  targets: real("targets"),
+  targetShare: real("target_share"),
+  recYds: real("rec_yds"),
+  avgRecYds: real("avg_rec_yds"),
+  recTd: real("rec_td"),
+
+  // K
+  fgAtt: real("fg_att"),
+  fgMade: real("fg_made"),
+  fgYdsMade: real("fg_yds_made"),
+  patMade: real("pat_made"),
+
+  // D/ST
+  ptsAgainst: real("pts_against"),
+  ydsAllowed: real("yds_allowed"),
+  fumblesForced: real("fumbles_forced"),
+  defInt: real("def_int"),
+  defSacks: real("def_sacks"),
+  defTd: real("def_td"),
+
+  // Paired Stat Points (*_pts)
+  passCmpPts: real("pass_cmp_pts"),
+  passYdsPts: real("pass_yds_pts"),
+  passTdPts: real("pass_td_pts"),
+  rushAttPts: real("rush_att_pts"),
+  rushYdsPts: real("rush_yds_pts"),
+  rushTdPts: real("rush_td_pts"),
+  recPts: real("rec_pts"),
+  recYdsPts: real("rec_yds_pts"),
+  recTdPts: real("rec_td_pts"),
+  fgAttPts: real("fg_att_pts"),
+  fgMadePts: real("fg_made_pts"),
+  fgYdsMadePts: real("fg_yds_made_pts"),
+  patMadePts: real("pat_made_pts"),
+  ptsAgainstPts: real("pts_against_pts"),
+  ydsAllowedPts: real("yds_allowed_pts"),
+  fumblesForcedPts: real("fumbles_forced_pts"),
+  defIntPts: real("def_int_pts"),
+  defSacksPts: real("def_sacks_pts"),
+  defTdPts: real("def_td_pts"),
+}).existing();
+
 // Division All-Play Matchups (10-Team)
 export const vfflDivAllPlayMatchups = vffl.view("div_all_play_matchups", {
   seasonYear: integer("season_year"),

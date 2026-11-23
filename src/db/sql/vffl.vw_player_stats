@@ -1,0 +1,354 @@
+WITH
+    pivoted_stats AS (
+        SELECT
+            ps.season_year,
+            ps.week,
+            ps.player_id,
+            max(ps.opponent_id) AS opponent_id,
+            round(COALESCE(sum(ps.stat_points), 0::real)::numeric, 2)::real AS actual_fpts,
+            COALESCE(sum(ps.stat_value) FILTER (WHERE ps.stat_id = 'passingCompletions'), 0::real)::real AS pass_cmp,
+            COALESCE(sum(ps.stat_value) FILTER (WHERE ps.stat_id = 'passingAttempts'), 0::real)::real AS pass_att,
+            COALESCE(sum(ps.stat_value) FILTER (WHERE ps.stat_id = 'passingYards'), 0::real)::real AS pass_yds,
+            COALESCE(sum(ps.stat_value) FILTER (WHERE ps.stat_id = 'passingTouchdowns'), 0::real)::real AS pass_td,
+            COALESCE(sum(ps.stat_value) FILTER (WHERE ps.stat_id = 'rushingAttempts'), 0::real)::real AS rush_att,
+            COALESCE(sum(ps.stat_value) FILTER (WHERE ps.stat_id = 'rushingYards'), 0::real)::real AS rush_yds,
+            COALESCE(sum(ps.stat_value) FILTER (WHERE ps.stat_id = 'rushingTouchdowns'), 0::real)::real AS rush_td,
+            COALESCE(sum(ps.stat_value) FILTER (WHERE ps.stat_id = 'receivingReceptions'), 0::real)::real AS rec,
+            COALESCE(sum(ps.stat_value) FILTER (WHERE ps.stat_id = 'receivingTargets'), 0::real)::real AS targets,
+            COALESCE(sum(ps.stat_value) FILTER (WHERE ps.stat_id = 'receivingYards'), 0::real)::real AS rec_yds,
+            COALESCE(sum(ps.stat_value) FILTER (WHERE ps.stat_id = 'receivingTouchdowns'), 0::real)::real AS rec_td,
+            COALESCE(sum(ps.stat_value) FILTER (WHERE ps.stat_id = 'attemptedFieldGoals'), 0::real)::real AS fg_att,
+            COALESCE(sum(ps.stat_value) FILTER (WHERE ps.stat_id = 'madeFieldGoals'), 0::real)::real AS fg_made,
+            COALESCE(sum(ps.stat_value) FILTER (WHERE ps.stat_id = '214'), 0::real)::real AS fg_yds_made,
+            COALESCE(sum(ps.stat_value) FILTER (WHERE ps.stat_id = 'madeExtraPoints'), 0::real)::real AS pat_made,
+            COALESCE(sum(ps.stat_value) FILTER (WHERE ps.stat_id = 'defensivePointsAllowed'), 0::real)::real AS pts_against,
+            COALESCE(sum(ps.stat_value) FILTER (WHERE ps.stat_id = 'defensiveYardsAllowed'), 0::real)::real AS yds_allowed,
+            COALESCE(sum(ps.stat_value) FILTER (WHERE ps.stat_id = 'defensiveForcedFumbles'), 0::real)::real AS fumbles_forced,
+            COALESCE(sum(ps.stat_value) FILTER (WHERE ps.stat_id = 'defensiveInterceptions'), 0::real)::real AS def_int,
+            COALESCE(sum(ps.stat_value) FILTER (WHERE ps.stat_id = 'defensiveSacks'), 0::real)::real AS def_sacks,
+            COALESCE(
+                NULLIF(
+                    sum(ps.stat_value) FILTER (
+                        WHERE ps.stat_id IN (
+                            'fumbleReturnTouchdowns',
+                            'interceptionReturnTouchdowns',
+                            'kickoffReturnTouchdowns',
+                            'puntReturnTouchdowns',
+                            'defensiveBlockedKickForTouchdowns',
+                            'fumbleRecoveredForTD'
+                        )
+                    ),
+                    0::real
+                ),
+                sum(ps.stat_value) FILTER (WHERE ps.stat_id = 'defensivePlusSpecialTeamsTouchdowns'),
+                0::real
+            )::real AS def_td,
+            round(COALESCE(sum(ps.stat_points) FILTER (WHERE ps.stat_id = 'passingCompletions'), 0::real)::numeric, 2)::real AS pass_cmp_pts,
+            round(
+                COALESCE(
+                    sum(ps.stat_points) FILTER (
+                        WHERE ps.stat_id IN ('passingYards', 'passing300To399YardGame', 'passing400PlusYardGame')
+                    ),
+                    0::real
+                )::numeric,
+                2
+            )::real AS pass_yds_pts,
+            round(
+                COALESCE(
+                    sum(ps.stat_points) FILTER (
+                        WHERE ps.stat_id IN ('passingTouchdowns', 'passing40PlusYardTD', 'passing50PlusYardTD')
+                    ),
+                    0::real
+                )::numeric,
+                2
+            )::real AS pass_td_pts,
+            round(COALESCE(sum(ps.stat_points) FILTER (WHERE ps.stat_id = 'rushingAttempts'), 0::real)::numeric, 2)::real AS rush_att_pts,
+            round(
+                COALESCE(
+                    sum(ps.stat_points) FILTER (
+                        WHERE ps.stat_id IN ('rushingYards', 'rushing100To199YardGame', 'rushing200PlusYardGame')
+                    ),
+                    0::real
+                )::numeric,
+                2
+            )::real AS rush_yds_pts,
+            round(
+                COALESCE(
+                    sum(ps.stat_points) FILTER (
+                        WHERE ps.stat_id IN ('rushingTouchdowns', 'rushing40PlusYardTD', 'rushing50PlusYardTD')
+                    ),
+                    0::real
+                )::numeric,
+                2
+            )::real AS rush_td_pts,
+            round(COALESCE(sum(ps.stat_points) FILTER (WHERE ps.stat_id = 'receivingReceptions'), 0::real)::numeric, 2)::real AS rec_pts,
+            round(
+                COALESCE(
+                    sum(ps.stat_points) FILTER (
+                        WHERE ps.stat_id IN ('receivingYards', 'receiving100To199YardGame', 'receiving200PlusYardGame')
+                    ),
+                    0::real
+                )::numeric,
+                2
+            )::real AS rec_yds_pts,
+            round(
+                COALESCE(
+                    sum(ps.stat_points) FILTER (
+                        WHERE ps.stat_id IN ('receivingTouchdowns', 'receiving40PlusYardTD', 'receiving50PlusYardTD')
+                    ),
+                    0::real
+                )::numeric,
+                2
+            )::real AS rec_td_pts,
+            round(COALESCE(sum(ps.stat_points) FILTER (WHERE ps.stat_id = 'attemptedFieldGoals'), 0::real)::numeric, 2)::real AS fg_att_pts,
+            round(
+                COALESCE(
+                    sum(ps.stat_points) FILTER (
+                        WHERE ps.stat_id IN (
+                            'madeFieldGoals',
+                            'madeFieldGoalsFromUnder40',
+                            'madeFieldGoalsFrom40To49',
+                            'madeFieldGoalsFrom50Plus',
+                            'madeFieldGoalsFrom60Plus',
+                            '198'
+                        )
+                    ),
+                    0::real
+                )::numeric,
+                2
+            )::real AS fg_made_pts,
+            round(COALESCE(sum(ps.stat_points) FILTER (WHERE ps.stat_id = '214'), 0::real)::numeric, 2)::real AS fg_yds_made_pts,
+            round(COALESCE(sum(ps.stat_points) FILTER (WHERE ps.stat_id = 'madeExtraPoints'), 0::real)::numeric, 2)::real AS pat_made_pts,
+            round(
+                COALESCE(
+                    sum(ps.stat_points) FILTER (
+                        WHERE ps.stat_id IN (
+                            'defensivePointsAllowed',
+                            'defensive0PointsAllowed',
+                            'defensive1To6PointsAllowed',
+                            'defensive7To13PointsAllowed',
+                            'defensive14To17PointsAllowed',
+                            'defensive18To21PointsAllowed',
+                            'defensive22To27PointsAllowed',
+                            'defensive28To34PointsAllowed',
+                            'defensive35To45PointsAllowed',
+                            'defensive45PlusPointsAllowed'
+                        )
+                    ),
+                    0::real
+                )::numeric,
+                2
+            )::real AS pts_against_pts,
+            round(
+                COALESCE(
+                    sum(ps.stat_points) FILTER (
+                        WHERE ps.stat_id IN (
+                            'defensiveYardsAllowed',
+                            'defensiveLessThan100YardsAllowed',
+                            'defensive100To199YardsAllowed',
+                            'defensive200To299YardsAllowed',
+                            'defensive300To349YardsAllowed',
+                            'defensive350To399YardsAllowed',
+                            'defensive400To449YardsAllowed',
+                            'defensive450To499YardsAllowed',
+                            'defensive500To549YardsAllowed',
+                            'defensive550PlusYardsAllowed'
+                        )
+                    ),
+                    0::real
+                )::numeric,
+                2
+            )::real AS yds_allowed_pts,
+            round(COALESCE(sum(ps.stat_points) FILTER (WHERE ps.stat_id = 'defensiveForcedFumbles'), 0::real)::numeric, 2)::real AS fumbles_forced_pts,
+            round(COALESCE(sum(ps.stat_points) FILTER (WHERE ps.stat_id = 'defensiveInterceptions'), 0::real)::numeric, 2)::real AS def_int_pts,
+            round(COALESCE(sum(ps.stat_points) FILTER (WHERE ps.stat_id = 'defensiveSacks'), 0::real)::numeric, 2)::real AS def_sacks_pts,
+            round(
+                COALESCE(
+                    sum(ps.stat_points) FILTER (
+                        WHERE ps.stat_id IN (
+                            'fumbleReturnTouchdowns',
+                            'interceptionReturnTouchdowns',
+                            'kickoffReturnTouchdowns',
+                            'puntReturnTouchdowns',
+                            'defensiveBlockedKickForTouchdowns',
+                            'fumbleRecoveredForTD',
+                            'defensiveTouchdowns',
+                            'defensivePlusSpecialTeamsTouchdowns'
+                        )
+                    ),
+                    0::real
+                )::numeric,
+                2
+            )::real AS def_td_pts
+        FROM
+            vffl.player_stats ps
+        GROUP BY
+            ps.season_year,
+            ps.week,
+            ps.player_id
+    ),
+    enriched_stats AS (
+        SELECT
+            ps.season_year,
+            ps.week,
+            ps.player_id,
+            p.name AS player_name,
+            p."position",
+            p.nfl_id,
+            n.abbrev AS nfl_abbrev,
+            n.location AS nfl_location,
+            n.name AS nfl_name,
+            ps.opponent_id,
+            opp.abbrev AS opponent_abbrev,
+            ps.actual_fpts,
+            ps.pass_cmp,
+            ps.pass_att,
+            COALESCE(round((ps.pass_cmp / NULLIF(ps.pass_att, 0::real))::numeric, 3)::real, 0::real) AS cmp_pct,
+            ps.pass_yds,
+            COALESCE(round((ps.pass_yds / NULLIF(ps.pass_cmp, 0::real))::numeric, 2)::real, 0::real) AS avg_pass_yds,
+            ps.pass_td,
+            ps.rush_att,
+            ps.rush_yds,
+            COALESCE(round((ps.rush_yds / NULLIF(ps.rush_att, 0::real))::numeric, 2)::real, 0::real) AS avg_rush_yds,
+            ps.rush_td,
+            CASE
+                WHEN p.nfl_id IS NOT NULL THEN COALESCE(
+                    round(
+                        (
+                            ps.rush_att / NULLIF(
+                                sum(ps.rush_att) OVER (
+                                    PARTITION BY
+                                        ps.season_year,
+                                        ps.week,
+                                        p.nfl_id
+                                ),
+                                0::real
+                            )
+                        )::numeric,
+                        3
+                    )::real,
+                    0::real
+                )
+                ELSE 0::real
+            END AS rush_share,
+            ps.rec,
+            ps.targets,
+            CASE
+                WHEN p.nfl_id IS NOT NULL THEN COALESCE(
+                    round(
+                        (
+                            ps.targets / NULLIF(
+                                sum(ps.targets) OVER (
+                                    PARTITION BY
+                                        ps.season_year,
+                                        ps.week,
+                                        p.nfl_id
+                                ),
+                                0::real
+                            )
+                        )::numeric,
+                        3
+                    )::real,
+                    0::real
+                )
+                ELSE 0::real
+            END AS target_share,
+            ps.rec_yds,
+            COALESCE(round((ps.rec_yds / NULLIF(ps.rec, 0::real))::numeric, 2)::real, 0::real) AS avg_rec_yds,
+            ps.rec_td,
+            ps.fg_att,
+            ps.fg_made,
+            ps.fg_yds_made,
+            ps.pat_made,
+            ps.pts_against,
+            ps.yds_allowed,
+            ps.fumbles_forced,
+            ps.def_int,
+            ps.def_sacks,
+            ps.def_td,
+            ps.pass_cmp_pts,
+            ps.pass_yds_pts,
+            ps.pass_td_pts,
+            ps.rush_att_pts,
+            ps.rush_yds_pts,
+            ps.rush_td_pts,
+            ps.rec_pts,
+            ps.rec_yds_pts,
+            ps.rec_td_pts,
+            ps.fg_att_pts,
+            ps.fg_made_pts,
+            ps.fg_yds_made_pts,
+            ps.pat_made_pts,
+            ps.pts_against_pts,
+            ps.yds_allowed_pts,
+            ps.fumbles_forced_pts,
+            ps.def_int_pts,
+            ps.def_sacks_pts,
+            ps.def_td_pts
+        FROM
+            pivoted_stats ps
+            JOIN vffl.players p ON ps.player_id = p.id
+            LEFT JOIN vffl.nfl n ON p.nfl_id = n.id
+            LEFT JOIN vffl.nfl opp ON ps.opponent_id = opp.id
+    )
+SELECT
+    season_year,
+    week,
+    player_id,
+    player_name,
+    "position",
+    nfl_id,
+    nfl_abbrev,
+    nfl_location,
+    nfl_name,
+    opponent_id,
+    opponent_abbrev,
+    actual_fpts,
+    pass_cmp,
+    pass_att,
+    cmp_pct,
+    pass_yds,
+    avg_pass_yds,
+    pass_td,
+    rush_att,
+    rush_yds,
+    avg_rush_yds,
+    rush_td,
+    rush_share,
+    rec,
+    targets,
+    target_share,
+    rec_yds,
+    avg_rec_yds,
+    rec_td,
+    fg_att,
+    fg_made,
+    fg_yds_made,
+    pat_made,
+    pts_against,
+    yds_allowed,
+    fumbles_forced,
+    def_int,
+    def_sacks,
+    def_td,
+    pass_cmp_pts,
+    pass_yds_pts,
+    pass_td_pts,
+    rush_att_pts,
+    rush_yds_pts,
+    rush_td_pts,
+    rec_pts,
+    rec_yds_pts,
+    rec_td_pts,
+    fg_att_pts,
+    fg_made_pts,
+    fg_yds_made_pts,
+    pat_made_pts,
+    pts_against_pts,
+    yds_allowed_pts,
+    fumbles_forced_pts,
+    def_int_pts,
+    def_sacks_pts,
+    def_td_pts
+FROM
+    enriched_stats;
