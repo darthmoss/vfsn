@@ -87,6 +87,8 @@ export const DIVISION_DATASETS: Record<DivisionKey, DivisionDataset> = {
         closeScoreWeek: "2024 Wk 4",
         closeScore: "114.2 - 113.85",
         closeScoreTeam: "Gridiron Syndicate",
+        matchupRank: 1,
+        matchupTitle: "Game of the Week",
       },
       {
         matchupId: 20260902,
@@ -124,6 +126,8 @@ export const DIVISION_DATASETS: Record<DivisionKey, DivisionDataset> = {
         closeScoreWeek: "2024 Wk 10",
         closeScore: "108.4 - 107.9",
         closeScoreTeam: "Blitzkrieg Express",
+        matchupRank: 2,
+        matchupTitle: "Red Zone Feature",
       },
       {
         matchupId: 20260903,
@@ -161,6 +165,8 @@ export const DIVISION_DATASETS: Record<DivisionKey, DivisionDataset> = {
         closeScoreWeek: "2023 Wk 9",
         closeScore: "101.3 - 100.8",
         closeScoreTeam: "Philly Special Ops",
+        matchupRank: 3,
+        matchupTitle: "Wild Card Special",
       },
       {
         matchupId: 20260904,
@@ -198,6 +204,8 @@ export const DIVISION_DATASETS: Record<DivisionKey, DivisionDataset> = {
         closeScoreWeek: "2025 Wk 1",
         closeScore: "112.5 - 111.9",
         closeScoreTeam: "Endzone Emperors",
+        matchupRank: 4,
+        matchupTitle: "Fringe Feature",
       },
       {
         matchupId: 20260905,
@@ -235,6 +243,8 @@ export const DIVISION_DATASETS: Record<DivisionKey, DivisionDataset> = {
         closeScoreWeek: "2022 Wk 5",
         closeScore: "96.4 - 96.1",
         closeScoreTeam: "Fourth Down Fury",
+        matchupRank: 5,
+        matchupTitle: "Cellar Scramble",
       },
     ],
     history: [
@@ -555,6 +565,8 @@ export const DIVISION_DATASETS: Record<DivisionKey, DivisionDataset> = {
         closeScoreWeek: "2022 Wk 3",
         closeScore: "116.5 - 116.0",
         closeScoreTeam: "Shadow Blitz",
+        matchupRank: 1,
+        matchupTitle: "Game of the Week",
       },
       {
         matchupId: 20260912,
@@ -592,6 +604,8 @@ export const DIVISION_DATASETS: Record<DivisionKey, DivisionDataset> = {
         closeScoreWeek: "2024 Wk 12",
         closeScore: "109.2 - 108.95",
         closeScoreTeam: "Midnight Marauders",
+        matchupRank: 2,
+        matchupTitle: "Red Zone Feature",
       },
       {
         matchupId: 20260913,
@@ -629,6 +643,8 @@ export const DIVISION_DATASETS: Record<DivisionKey, DivisionDataset> = {
         closeScoreWeek: "2025 Wk 2",
         closeScore: "103.4 - 103.1",
         closeScoreTeam: "Iron Curtain FC",
+        matchupRank: 3,
+        matchupTitle: "Wild Card Special",
       },
       {
         matchupId: 20260914,
@@ -666,6 +682,8 @@ export const DIVISION_DATASETS: Record<DivisionKey, DivisionDataset> = {
         closeScoreWeek: "2021 Wk 11",
         closeScore: "99.8 - 99.2",
         closeScoreTeam: "Phantom Franchise",
+        matchupRank: 4,
+        matchupTitle: "Fringe Feature",
       },
       {
         matchupId: 20260915,
@@ -703,6 +721,8 @@ export const DIVISION_DATASETS: Record<DivisionKey, DivisionDataset> = {
         closeScoreWeek: "2023 Wk 1",
         closeScore: "94.6 - 94.2",
         closeScoreTeam: "Trench Warfare",
+        matchupRank: 5,
+        matchupTitle: "Cellar Scramble",
       },
     ],
     history: [

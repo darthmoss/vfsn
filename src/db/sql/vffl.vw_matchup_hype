@@ -283,7 +283,16 @@ SELECT
     COALESCE(hs_team.team_name, 'None'::character varying) AS high_score_team,
     h2h.close_score_week,
     h2h.close_score,
-    COALESCE(cs_team.team_name, 'None'::character varying) AS close_score_team
+    COALESCE(cs_team.team_name, 'None'::character varying) AS close_score_team,
+    mr.matchup_rank,
+    CASE mr.matchup_rank
+        WHEN 1 THEN 'Game of the Week'
+        WHEN 2 THEN 'Red Zone Feature'
+        WHEN 3 THEN 'Wild Card Special'
+        WHEN 4 THEN 'Fringe Feature'
+        WHEN 5 THEN 'Cellar Scramble'
+        ELSE NULL
+    END AS matchup_title
 FROM
     vffl.matchups m
     JOIN vffl.leagues l ON m.league_id = l.league_id
@@ -316,4 +325,5 @@ FROM
     AND m.season_year = hs_team.season_year
     LEFT JOIN vffl.teams cs_team ON h2h.close_score_winner_id = cs_team.manager_id
     AND m.league_id = cs_team.league_id
-    AND m.season_year = cs_team.season_year;
+    AND m.season_year = cs_team.season_year
+    LEFT JOIN vffl.vw_matchup_ranking mr ON m.id = mr.matchup_id;

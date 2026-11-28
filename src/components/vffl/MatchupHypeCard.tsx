@@ -148,6 +148,17 @@ export default function MatchupHypeCard({
 
         {/* CENTER BROADCAST VS DIVIDER & FULL BOX SCORE CTA */}
         <div className="flex flex-col items-center justify-between gap-2 self-stretch">
+          {(matchup.matchupTitle || matchupNumber !== undefined) && (
+            <div
+              className="px-3 py-1 rounded-full border border-[var(--vfsn-border)] text-[10px] font-black uppercase tracking-[0.16em] whitespace-nowrap shadow-md shrink-0"
+              style={{
+                backgroundColor: "rgba(0, 0, 0, 0.25)",
+                color: "var(--nav-highlight, var(--vfsn-accent-1))",
+              }}
+            >
+              {matchup.matchupTitle ?? `Matchup ${matchupNumber}`}
+            </div>
+          )}
           <div className="w-px flex-1 bg-[var(--vfsn-border)]" />
           <div
             className="w-9 h-9 rounded-full border border-[var(--vfsn-border)] flex items-center justify-center text-[11px] font-black tracking-widest uppercase shadow-md shrink-0"

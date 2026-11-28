@@ -540,7 +540,7 @@ def upsert_recap_data(conn, cur, year, week, data):
     return recap_id
 
 
-def validate_and_load_recap(year, week, json_path):
+def validate_and_load_recap(year, week, json_path, cleanup=False):
     if not os.path.exists(json_path):
         print(f"Error: JSON file not found at {json_path}")
         sys.exit(1)
@@ -581,6 +581,13 @@ def validate_and_load_recap(year, week, json_path):
     upsert_recap_data(conn, cur, year, week, data)
     cur.close()
     conn.close()
+
+    if cleanup:
+        ctx_path = os.path.join(SCRIPT_DIR, f"recap_context_{year}_wk{week}.json")
+        for p in (ctx_path, json_path):
+            if os.path.exists(p):
+                os.remove(p)
+                print(f"Cleaned up temporary file: {p}")
 
 
 MATCHUP_ITEM_SCHEMA = {
@@ -680,6 +687,14 @@ You must generate the VFFL Weekly Head-to-Head (H2H) Recap JSON for both the Red
    - A high-energy sign-off wrapping up the week and looking ahead to next week's slate across both divisions."""
 
 
+DEFAULT_MODEL_CHAIN = [
+    "gemini-3-flash-preview",
+    "gemini-3.1-pro-preview",
+    "gemini-3.1-flash-lite",
+    "gemini-3.8-flash",
+]
+
+
 def call_gemini_json(api_key, models_to_try, user_prompt):
     last_err = None
     for model_name in models_to_try:
@@ -703,7 +718,7 @@ def call_gemini_json(api_key, models_to_try, user_prompt):
         for attempt in range(1, 3):
             try:
                 print(f"Calling Gemini API ({model_name}, attempt {attempt})...")
-                resp = requests.post(url, json=payload, timeout=240)
+                resp = requests.post(url, json=payload, timeout=180)
                 if resp.status_code == 200:
                     resp_json = resp.json()
                     candidates = resp_json.get("candidates") or []
@@ -711,7 +726,11 @@ def call_gemini_json(api_key, models_to_try, user_prompt):
                         raise RuntimeError(f"Empty candidates in Gemini response: {resp_json}")
                     parts = candidates[0].get("content", {}).get("parts") or []
                     text_out = "".join(p.get("text", "") for p in parts).strip()
-                    return json.loads(text_out)
+                    return json.loads(text_out), model_name
+                elif resp.status_code == 429 and "limit: 0" in resp.text:
+                    last_err = f"HTTP 429 (limit: 0 on current tier)"
+                    print(f"Model {model_name} has 0 quota on current tier. Skipping immediately to next model...")
+                    break
                 elif resp.status_code in (429, 500, 502, 503, 504):
                     last_err = f"HTTP {resp.status_code}: {resp.text[:300]}"
                     print(f"Transient error from {model_name} ({last_err}). Retrying after backoff...")
@@ -733,10 +752,13 @@ def generate_and_load_recap(year, week):
         print("Error: GEMINI_API_KEY (or GOOGLE_API_KEY) is not set in .env.local or environment variables.")
         sys.exit(1)
 
-    primary_model = os.getenv("GEMINI_MODEL", "gemini-3.1-pro-preview")
-    models_to_try = [primary_model]
-    if "gemini-3.8-flash" not in models_to_try:
-        models_to_try.append("gemini-3.8-flash")
+    env_model = os.getenv("GEMINI_MODEL")
+    models_to_try = []
+    if env_model:
+        models_to_try.append(env_model)
+    for m in DEFAULT_MODEL_CHAIN:
+        if m not in models_to_try:
+            models_to_try.append(m)
 
     temp_context_path = os.path.join(SCRIPT_DIR, f"recap_context_{year}_wk{week}.json")
     extract_context(year, week, temp_context_path)
@@ -764,7 +786,11 @@ def generate_and_load_recap(year, week):
     current_prompt = base_prompt
 
     for val_attempt in range(1, max_validation_attempts + 1):
-        recap_data = call_gemini_json(api_key, models_to_try, current_prompt)
+        recap_data, active_model = call_gemini_json(api_key, models_to_try, current_prompt)
+        # Keep the model that succeeded at the front of the list for any subsequent repair attempts
+        if active_model in models_to_try and models_to_try[0] != active_model:
+            models_to_try.remove(active_model)
+            models_to_try.insert(0, active_model)
         structural_errors, missing_starters = collect_validation_errors(
             year, week, recap_data, starters_by_matchup_team
         )
@@ -982,7 +1008,64 @@ def render_markdown_from_neon(year, week, md_path):
     print(f"Rendered Week {week} ({year}) recap from Neon to {md_path}")
 
 
+def check_latest_recap_status():
+    """Resolve latest season_year and completed_week (current_week - 1) from vffl.leagues and check if vffl.weekly_recaps has it."""
+    db_url = os.getenv("DATABASE_URL")
+    if not db_url:
+        print("Error: DATABASE_URL is not set in .env.local")
+        sys.exit(1)
+
+    conn = psycopg2.connect(db_url)
+    ensure_table_exists(conn)
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    cur.execute(
+        """
+        SELECT season_year, current_week
+        FROM vffl.leagues
+        ORDER BY season_year DESC, current_week DESC
+        LIMIT 1;
+        """
+    )
+    league_row = cur.fetchone()
+    if not league_row:
+        print("Error: Could not resolve current_week from vffl.leagues.")
+        cur.close()
+        conn.close()
+        sys.exit(1)
+
+    year = int(league_row["season_year"])
+    current_week = int(league_row["current_week"])
+    completed_week = max(1, current_week - 1)
+
+    cur.execute(
+        """
+        SELECT id, updated_at
+        FROM vffl.weekly_recaps
+        WHERE season_year = %s AND week = %s;
+        """,
+        (year, completed_week),
+    )
+    recap_row = cur.fetchone()
+    cur.close()
+    conn.close()
+
+    status = {
+        "seasonYear": year,
+        "currentWeek": current_week,
+        "completedWeek": completed_week,
+        "exists": recap_row is not None,
+        "recapId": recap_row["id"] if recap_row else None,
+        "updatedAt": str(recap_row["updated_at"]) if recap_row else None,
+    }
+    print(json.dumps(status))
+    return status
+
+
 def main():
+    if len(sys.argv) >= 2 and sys.argv[1].lower() == "status":
+        check_latest_recap_status()
+        return
+
     if len(sys.argv) >= 2 and sys.argv[1].lower() == "init":
         db_url = os.getenv("DATABASE_URL")
         if not db_url:
@@ -996,6 +1079,7 @@ def main():
 
     if len(sys.argv) < 4:
         print("Usage:")
+        print("  python scripts/vffl_weekly_recap_helper.py status")
         print("  python scripts/vffl_weekly_recap_helper.py init")
         print("  python scripts/vffl_weekly_recap_helper.py generate <year> <week>")
         print("  python scripts/vffl_weekly_recap_helper.py generate-range <year> <start_week> <end_week>")
@@ -1037,7 +1121,8 @@ def main():
         if len(sys.argv) < 5:
             print("Error: 'load' mode requires <recap_json_path>.")
             sys.exit(1)
-        validate_and_load_recap(year, week, sys.argv[4])
+        cleanup = "--cleanup" in sys.argv[5:]
+        validate_and_load_recap(year, week, sys.argv[4], cleanup=cleanup)
     elif mode == "load-range":
         if len(sys.argv) < 5:
             print("Error: 'load-range' requires <year> <start_week> <end_week>.")

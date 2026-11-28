@@ -174,6 +174,10 @@ export default async function CurrentWeekPage({
             eq(vfflVwMatchupHype.week, week),
             eq(vfflVwMatchupHype.leagueName, dbLeagueName)
           )
+        )
+        .orderBy(
+          asc(vfflVwMatchupHype.matchupRank),
+          asc(vfflVwMatchupHype.matchupId)
         ),
       db
         .select()

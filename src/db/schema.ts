@@ -533,6 +533,8 @@ export const vfflVwMatchupHype = vffl.view("vw_matchup_hype", {
   closeScoreWeek: text("close_score_week"),
   closeScore: text("close_score"),
   closeScoreTeam: text("close_score_team"),
+  matchupRank: integer("matchup_rank"),
+  matchupTitle: text("matchup_title"),
 }).existing();
 
 // This Week in History View
